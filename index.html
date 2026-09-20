@@ -1,106 +1,96 @@
-<!doctype html>
-
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
 
   <meta
     name="viewport"
-    content="width=device-width,initial-scale=1"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
   >
 
   <meta
-    name="robots"
-    content="noindex,nofollow"
+    name="theme-color"
+    content="#0b0c10"
   >
 
-  <title>
-    Project Hub
-  </title>
+  <title>Project Hub</title>
 
   <link
     rel="stylesheet"
     href="./css/app.css"
   >
-
 </head>
 
 <body>
 
-<div class="app-shell">
+<div
+  id="app"
+  class="app-shell"
+>
 
   <aside class="sidebar">
 
-    <div class="sidebar-brand">
-
+    <div class="brand">
       <div class="brand-mark">
-        KH
+        PH
       </div>
 
       <div>
-        <strong>PROJECT HUB</strong>
-        <small>Command Centre</small>
+        <strong>Project Hub</strong>
+        <span>Command Centre</span>
       </div>
-
     </div>
 
-    <nav class="navigation">
+    <nav
+      class="desktop-nav"
+      aria-label="Main navigation"
+    >
 
       <button
-        class="nav-item active"
-        data-view="today"
+        class="nav-button active"
+        data-route="today"
       >
+        <span>⌂</span>
         Today
       </button>
 
       <button
-        class="nav-item"
-        data-view="create"
+        class="nav-button"
+        data-route="content"
       >
-        + Create
-      </button>
-
-      <button
-        class="nav-item"
-        data-view="calendar"
-      >
-        Calendar
-      </button>
-
-      <button
-        class="nav-item"
-        data-view="content"
-      >
+        <span>▤</span>
         Content
       </button>
 
       <button
-        class="nav-item"
-        data-view="projects"
+        class="nav-button"
+        data-route="calendar"
       >
+        <span>□</span>
+        Calendar
+      </button>
+
+      <button
+        class="nav-button"
+        data-route="projects"
+      >
+        <span>◇</span>
         Projects
       </button>
 
       <button
-        class="nav-item"
-        data-view="ideas"
+        class="nav-button"
+        data-route="ideas"
       >
+        <span>✦</span>
         Ideas
       </button>
 
       <button
-        class="nav-item"
-        data-view="analytics"
+        class="nav-button"
+        data-route="accounts"
       >
-        Analytics
-      </button>
-
-      <button
-        class="nav-item"
-        data-view="accounts"
-      >
+        <span>◎</span>
         Accounts
       </button>
 
@@ -109,8 +99,9 @@
     <div class="sidebar-footer">
 
       <button
-        id="logout-button"
-        class="nav-item"
+        id="logoutButton"
+        class="ghost-button full-width"
+        type="button"
       >
         Sign out
       </button>
@@ -120,196 +111,384 @@
   </aside>
 
 
-  <main class="main-content">
+  <main class="main">
 
     <header class="topbar">
 
-      <div>
+      <div class="mobile-brand">
+        <div class="brand-mark small">
+          PH
+        </div>
 
-        <p class="eyebrow">
-          COMMAND CENTRE
-        </p>
+        <div>
+          <strong>Project Hub</strong>
+          <span id="mobileSection">
+            Today
+          </span>
+        </div>
+      </div>
 
-        <h1 id="welcome-heading">
-          Loading...
-        </h1>
+      <div class="project-switcher-wrap">
+
+        <label
+          for="projectSwitcher"
+          class="sr-only"
+        >
+          Active project
+        </label>
+
+        <select
+          id="projectSwitcher"
+          class="project-switcher"
+        >
+          <option value="">
+            All projects
+          </option>
+        </select>
 
       </div>
 
-      <button
-        id="quick-create"
-        class="primary-button"
-      >
-        + Create Content
-      </button>
+      <div class="topbar-actions">
+
+        <div class="user-chip">
+          <span
+            id="userInitial"
+            class="user-avatar"
+          >
+            K
+          </span>
+
+          <span
+            id="userName"
+            class="user-name"
+          >
+            Kirk
+          </span>
+        </div>
+
+        <button
+          id="createButton"
+          class="primary-button desktop-create"
+          type="button"
+        >
+          + Create
+        </button>
+
+      </div>
 
     </header>
 
 
     <section
-      id="dashboard"
-      class="dashboard-grid"
+      id="page"
+      class="page"
+      aria-live="polite"
     >
-
-      <article class="panel hero-panel">
-
-        <div>
-
-          <p class="eyebrow">
-            TODAY
-          </p>
-
-          <h2>
-            What are we shipping?
-          </h2>
-
-          <p class="muted">
-            Everything that needs your
-            attention, in one place.
-          </p>
-
-        </div>
-
-      </article>
-
-
-      <article class="panel">
-
-        <div class="panel-header">
-
-          <div>
-
-            <p class="eyebrow">
-              CONTENT
-            </p>
-
-            <h2>
-              Publishing Queue
-            </h2>
-
-          </div>
-
-        </div>
-
-        <div id="publication-list">
-          Loading...
-        </div>
-
-      </article>
-
-
-      <article class="panel">
-
-        <div class="panel-header">
-
-          <div>
-
-            <p class="eyebrow">
-              WORK
-            </p>
-
-            <h2>
-              Tasks
-            </h2>
-
-          </div>
-
-        </div>
-
-        <div id="task-list">
-          Loading...
-        </div>
-
-      </article>
-
-
-      <article class="panel">
-
-        <div class="panel-header">
-
-          <div>
-
-            <p class="eyebrow">
-              PROJECTS
-            </p>
-
-            <h2>
-              Active Projects
-            </h2>
-
-          </div>
-
-          <button
-            id="new-project-button"
-            class="secondary-button"
-          >
-            + Project
-          </button>
-
-        </div>
-
-        <div
-          id="project-grid"
-          class="project-grid"
-        >
-          Loading...
-        </div>
-
-      </article>
-
     </section>
 
   </main>
 
+
+  <nav
+    class="mobile-nav"
+    aria-label="Mobile navigation"
+  >
+
+    <button
+      class="mobile-nav-button active"
+      data-route="today"
+    >
+      <span>⌂</span>
+      <small>Today</small>
+    </button>
+
+    <button
+      class="mobile-nav-button"
+      data-route="content"
+    >
+      <span>▤</span>
+      <small>Content</small>
+    </button>
+
+    <button
+      id="mobileCreateButton"
+      class="mobile-create-button"
+      type="button"
+      aria-label="Create content"
+    >
+      +
+    </button>
+
+    <button
+      class="mobile-nav-button"
+      data-route="calendar"
+    >
+      <span>□</span>
+      <small>Calendar</small>
+    </button>
+
+    <button
+      id="moreButton"
+      class="mobile-nav-button"
+      type="button"
+    >
+      <span>•••</span>
+      <small>More</small>
+    </button>
+
+  </nav>
+
 </div>
 
 
-<dialog id="project-dialog">
+<div
+  id="backdrop"
+  class="backdrop"
+  hidden
+></div>
 
-  <form
-    id="project-form"
-    class="dialog-form"
-  >
 
-    <div class="dialog-heading">
+<section
+  id="createSheet"
+  class="sheet"
+  aria-hidden="true"
+>
 
-      <div>
+  <div class="sheet-handle"></div>
 
-        <p class="eyebrow">
-          NEW
-        </p>
+  <div class="sheet-header">
 
-        <h2>
-          Create Project
-        </h2>
+    <div>
+      <span class="eyebrow">
+        NEW CONTENT
+      </span>
 
-      </div>
+      <h2>Create content</h2>
+    </div>
 
-      <button
-        id="close-project-dialog"
-        type="button"
-        class="icon-button"
-      >
-        ×
-      </button>
+    <button
+      class="icon-button"
+      data-close-sheet
+      type="button"
+      aria-label="Close"
+    >
+      ×
+    </button>
+
+  </div>
+
+  <form id="contentForm">
+
+    <div class="form-grid">
+
+      <label class="field">
+        <span>Project</span>
+
+        <select
+          id="contentProject"
+          required
+        ></select>
+      </label>
+
+      <label class="field">
+        <span>Type</span>
+
+        <select
+          id="contentType"
+          required
+        >
+          <option value="video">
+            Video
+          </option>
+
+          <option value="image">
+            Image
+          </option>
+
+          <option value="carousel">
+            Carousel
+          </option>
+
+          <option value="text">
+            Text
+          </option>
+        </select>
+      </label>
 
     </div>
 
-    <label>
-      Name
+    <label class="field">
+      <span>Title</span>
 
       <input
-        id="project-name"
+        id="contentTitle"
+        type="text"
+        maxlength="200"
+        placeholder="What's being made?"
         required
-        maxlength="100"
       >
     </label>
 
-    <label>
-      Type
+    <label class="field">
+      <span>Description / notes</span>
 
-      <select id="project-type">
+      <textarea
+        id="contentDescription"
+        maxlength="5000"
+        rows="5"
+        placeholder="Hook, script notes, edit instructions..."
+      ></textarea>
+    </label>
 
+    <label class="field">
+      <span>Stage</span>
+
+      <select
+        id="contentStatus"
+      >
+        <option value="idea">
+          Idea
+        </option>
+
+        <option value="script">
+          Script
+        </option>
+
+        <option value="recording">
+          Recording
+        </option>
+
+        <option value="editing">
+          Editing
+        </option>
+
+        <option value="ready">
+          Ready
+        </option>
+      </select>
+    </label>
+
+    <button
+      class="primary-button full-width large-button"
+      type="submit"
+    >
+      Create content
+    </button>
+
+  </form>
+
+</section>
+
+
+<section
+  id="moreSheet"
+  class="sheet compact-sheet"
+  aria-hidden="true"
+>
+
+  <div class="sheet-handle"></div>
+
+  <div class="sheet-header">
+    <h2>More</h2>
+
+    <button
+      class="icon-button"
+      data-close-sheet
+      type="button"
+    >
+      ×
+    </button>
+  </div>
+
+  <div class="more-grid">
+
+    <button
+      data-more-route="projects"
+      type="button"
+    >
+      <span>◇</span>
+      Projects
+    </button>
+
+    <button
+      data-more-route="ideas"
+      type="button"
+    >
+      <span>✦</span>
+      Ideas
+    </button>
+
+    <button
+      data-more-route="accounts"
+      type="button"
+    >
+      <span>◎</span>
+      Accounts
+    </button>
+
+    <button
+      id="mobileLogout"
+      type="button"
+    >
+      <span>↪</span>
+      Sign out
+    </button>
+
+  </div>
+
+</section>
+
+
+<dialog id="projectDialog">
+
+  <form
+    id="projectForm"
+    method="dialog"
+    class="dialog-form"
+  >
+
+    <div class="dialog-header">
+      <div>
+        <span class="eyebrow">
+          NEW WORKSPACE
+        </span>
+
+        <h2>Create project</h2>
+      </div>
+
+      <button
+        id="closeProjectDialog"
+        class="icon-button"
+        type="button"
+      >
+        ×
+      </button>
+    </div>
+
+    <label class="field">
+      <span>Name</span>
+
+      <input
+        id="projectName"
+        maxlength="100"
+        required
+      >
+    </label>
+
+    <label class="field">
+      <span>Description</span>
+
+      <textarea
+        id="projectDescription"
+        maxlength="2000"
+        rows="4"
+      ></textarea>
+    </label>
+
+    <label class="field">
+      <span>Type</span>
+
+      <select id="projectType">
         <option value="content">
           Content / Creator
         </option>
@@ -326,42 +505,31 @@
           Brand
         </option>
 
-        <option value="saas">
+        <option value="website">
           Website / SaaS
         </option>
 
         <option value="custom">
           Custom
         </option>
-
       </select>
-
     </label>
 
-    <label>
-      Description
-
-      <textarea
-        id="project-description"
-        maxlength="2000"
-      ></textarea>
-    </label>
-
-    <label>
-      Accent
+    <label class="field">
+      <span>Accent</span>
 
       <input
-        id="project-colour"
+        id="projectColour"
         type="color"
         value="#8b5cf6"
       >
     </label>
 
     <button
-      class="primary-button"
+      class="primary-button full-width"
       type="submit"
     >
-      Create Project
+      Create project
     </button>
 
   </form>
@@ -369,10 +537,161 @@
 </dialog>
 
 
+<dialog id="ideaDialog">
+
+  <form
+    id="ideaForm"
+    method="dialog"
+    class="dialog-form"
+  >
+
+    <div class="dialog-header">
+      <h2>Capture idea</h2>
+
+      <button
+        id="closeIdeaDialog"
+        class="icon-button"
+        type="button"
+      >
+        ×
+      </button>
+    </div>
+
+    <label class="field">
+      <span>Idea</span>
+
+      <input
+        id="ideaTitle"
+        maxlength="200"
+        required
+      >
+    </label>
+
+    <label class="field">
+      <span>Project</span>
+
+      <select id="ideaProject">
+        <option value="">
+          Unassigned
+        </option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Notes</span>
+
+      <textarea
+        id="ideaDescription"
+        maxlength="5000"
+        rows="4"
+      ></textarea>
+    </label>
+
+    <button
+      class="primary-button full-width"
+      type="submit"
+    >
+      Save idea
+    </button>
+
+  </form>
+
+</dialog>
+
+
+<dialog id="accountDialog">
+
+  <form
+    id="accountForm"
+    method="dialog"
+    class="dialog-form"
+  >
+
+    <div class="dialog-header">
+      <h2>Add social account</h2>
+
+      <button
+        id="closeAccountDialog"
+        class="icon-button"
+        type="button"
+      >
+        ×
+      </button>
+    </div>
+
+    <label class="field">
+      <span>Project</span>
+
+      <select
+        id="accountProject"
+        required
+      ></select>
+    </label>
+
+    <label class="field">
+      <span>Platform</span>
+
+      <select
+        id="accountPlatform"
+        required
+      >
+        <option value="tiktok">
+          TikTok
+        </option>
+
+        <option value="youtube">
+          YouTube
+        </option>
+
+        <option value="instagram">
+          Instagram
+        </option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Account name</span>
+
+      <input
+        id="accountName"
+        maxlength="200"
+        required
+        placeholder="365in5 TikTok"
+      >
+    </label>
+
+    <label class="field">
+      <span>Handle</span>
+
+      <input
+        id="accountHandle"
+        maxlength="200"
+        placeholder="@365in5.com"
+      >
+    </label>
+
+    <button
+      class="primary-button full-width"
+      type="submit"
+    >
+      Add account
+    </button>
+
+  </form>
+
+</dialog>
+
+
+<div
+  id="toast"
+  class="toast"
+  hidden
+></div>
+
+
 <script src="./js/config.js"></script>
 <script src="./js/api.js"></script>
 <script src="./js/app.js"></script>
 
 </body>
-
 </html>
