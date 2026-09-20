@@ -1,472 +1,2570 @@
 "use strict";
 
-const state = {
-  user: null,
-  projects: [],
-  tasks: [],
-  publications: []
-};
+(() => {
+
+  const API =
+    window.ProjectHubAPI;
+
+  const state = {
+    user: null,
+    projects: [],
+    activeProjectId: "",
+    route: "today"
+  };
+
+  const page =
+    document.getElementById(
+      "page"
+    );
+
+  const projectSwitcher =
+    document.getElementById(
+      "projectSwitcher"
+    );
+
+  const userName =
+    document.getElementById(
+      "userName"
+    );
+
+  const userInitial =
+    document.getElementById(
+      "userInitial"
+    );
+
+  const mobileSection =
+    document.getElementById(
+      "mobileSection"
+    );
+
+  const createSheet =
+    document.getElementById(
+      "createSheet"
+    );
+
+  const moreSheet =
+    document.getElementById(
+      "moreSheet"
+    );
+
+  const backdrop =
+    document.getElementById(
+      "backdrop"
+    );
+
+  const toast =
+    document.getElementById(
+      "toast"
+    );
+
+  const projectDialog =
+    document.getElementById(
+      "projectDialog"
+    );
+
+  const ideaDialog =
+    document.getElementById(
+      "ideaDialog"
+    );
+
+  const accountDialog =
+    document.getElementById(
+      "accountDialog"
+    );
+
+  init();
+
+  async function init() {
+
+    bindGlobalEvents();
+
+    showLoading();
+
+    try {
+
+      const me =
+        await API.me();
+
+      state.user =
+        me.user;
+
+      userName.textContent =
+        state.user.displayName;
+
+      userInitial.textContent =
+        (
+          state.user.displayName ||
+          state.user.username ||
+          "U"
+        )
+          .charAt(0)
+          .toUpperCase();
+
+      await loadProjects();
+
+      await navigate("today");
+
+    } catch (error) {
+
+      if (
+        error.message !==
+        "UNAUTHENTICATED"
+      ) {
+        showFatal(
+          "Could not load Project Hub."
+        );
+      }
+
+    }
+
+  }
 
 
-document.addEventListener(
-  "DOMContentLoaded",
-  initialise
-);
+  function bindGlobalEvents() {
+
+    document
+      .querySelectorAll(
+        "[data-route]"
+      )
+      .forEach(button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+            navigate(
+              button.dataset.route
+            );
+          }
+        );
+
+      });
 
 
-async function initialise() {
-  bindEvents();
+    document
+      .getElementById(
+        "createButton"
+      )
+      .addEventListener(
+        "click",
+        openCreateSheet
+      );
 
-  try {
-    const result =
-      await ProjectHubAPI.dashboard();
 
-    state.user =
-      result.user;
+    document
+      .getElementById(
+        "mobileCreateButton"
+      )
+      .addEventListener(
+        "click",
+        openCreateSheet
+      );
+
+
+    document
+      .getElementById(
+        "moreButton"
+      )
+      .addEventListener(
+        "click",
+        () =>
+          openSheet(
+            moreSheet
+          )
+      );
+
+
+    document
+      .querySelectorAll(
+        "[data-close-sheet]"
+      )
+      .forEach(button => {
+
+        button.addEventListener(
+          "click",
+          closeSheets
+        );
+
+      });
+
+
+    backdrop.addEventListener(
+      "click",
+      closeSheets
+    );
+
+
+    document
+      .querySelectorAll(
+        "[data-more-route]"
+      )
+      .forEach(button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            closeSheets();
+
+            navigate(
+              button.dataset
+                .moreRoute
+            );
+
+          }
+        );
+
+      });
+
+
+    document
+      .getElementById(
+        "logoutButton"
+      )
+      .addEventListener(
+        "click",
+        logout
+      );
+
+
+    document
+      .getElementById(
+        "mobileLogout"
+      )
+      .addEventListener(
+        "click",
+        logout
+      );
+
+
+    projectSwitcher
+      .addEventListener(
+        "change",
+        async () => {
+
+          state.activeProjectId =
+            projectSwitcher.value;
+
+          await navigate(
+            state.route,
+            false
+          );
+
+        }
+      );
+
+
+    document
+      .getElementById(
+        "contentForm"
+      )
+      .addEventListener(
+        "submit",
+        submitContent
+      );
+
+
+    document
+      .getElementById(
+        "projectForm"
+      )
+      .addEventListener(
+        "submit",
+        submitProject
+      );
+
+
+    document
+      .getElementById(
+        "ideaForm"
+      )
+      .addEventListener(
+        "submit",
+        submitIdea
+      );
+
+
+    document
+      .getElementById(
+        "accountForm"
+      )
+      .addEventListener(
+        "submit",
+        submitAccount
+      );
+
+
+    document
+      .getElementById(
+        "closeProjectDialog"
+      )
+      .addEventListener(
+        "click",
+        () =>
+          projectDialog.close()
+      );
+
+
+    document
+      .getElementById(
+        "closeIdeaDialog"
+      )
+      .addEventListener(
+        "click",
+        () =>
+          ideaDialog.close()
+      );
+
+
+    document
+      .getElementById(
+        "closeAccountDialog"
+      )
+      .addEventListener(
+        "click",
+        () =>
+          accountDialog.close()
+      );
+
+  }
+
+
+  async function navigate(
+    route,
+    updateNav = true
+  ) {
+
+    state.route = route;
+
+    closeSheets();
+
+    if (updateNav) {
+      updateNavigation(route);
+    }
+
+    mobileSection.textContent =
+      routeLabel(route);
+
+    showLoading();
+
+    try {
+
+      switch (route) {
+
+        case "today":
+          await renderToday();
+          break;
+
+        case "content":
+          await renderContent();
+          break;
+
+        case "calendar":
+          await renderCalendar();
+          break;
+
+        case "projects":
+          await renderProjects();
+          break;
+
+        case "ideas":
+          await renderIdeas();
+          break;
+
+        case "accounts":
+          await renderAccounts();
+          break;
+
+        default:
+          await renderToday();
+
+      }
+
+    } catch (error) {
+
+      console.error(error);
+
+      page.innerHTML = "";
+
+      page.appendChild(
+        emptyState(
+          "!",
+          "Something went wrong",
+          readableError(error)
+        )
+      );
+
+    }
+
+  }
+
+
+  function updateNavigation(route) {
+
+    document
+      .querySelectorAll(
+        "[data-route]"
+      )
+      .forEach(button => {
+
+        button.classList.toggle(
+          "active",
+          button.dataset.route ===
+            route
+        );
+
+      });
+
+
+    document
+      .querySelectorAll(
+        ".mobile-nav-button"
+      )
+      .forEach(button => {
+
+        if (!button.dataset.route) {
+          return;
+        }
+
+        button.classList.toggle(
+          "active",
+          button.dataset.route ===
+            route
+        );
+
+      });
+
+  }
+
+
+  async function loadProjects() {
+
+    const response =
+      await API.projects();
 
     state.projects =
-      result.projects || [];
+      response.projects;
 
-    state.tasks =
-      result.tasks || [];
+    renderProjectSelectors();
 
-    state.publications =
-      result.publications || [];
+  }
 
-    render();
 
-  } catch (error) {
+  function renderProjectSelectors() {
 
-    if (error.status === 401) {
-      window.location.href =
-        "./login.html";
+    projectSwitcher.innerHTML = "";
+
+    addOption(
+      projectSwitcher,
+      "",
+      "All projects"
+    );
+
+
+    const contentProject =
+      document.getElementById(
+        "contentProject"
+      );
+
+    const ideaProject =
+      document.getElementById(
+        "ideaProject"
+      );
+
+    const accountProject =
+      document.getElementById(
+        "accountProject"
+      );
+
+
+    contentProject.innerHTML = "";
+    ideaProject.innerHTML = "";
+    accountProject.innerHTML = "";
+
+
+    addOption(
+      ideaProject,
+      "",
+      "Unassigned"
+    );
+
+
+    for (
+      const project of
+        state.projects
+    ) {
+
+      addOption(
+        projectSwitcher,
+        String(project.id),
+        project.name
+      );
+
+      addOption(
+        contentProject,
+        String(project.id),
+        project.name
+      );
+
+      addOption(
+        ideaProject,
+        String(project.id),
+        project.name
+      );
+
+      addOption(
+        accountProject,
+        String(project.id),
+        project.name
+      );
+
+    }
+
+
+    projectSwitcher.value =
+      state.activeProjectId;
+
+  }
+
+
+  async function renderToday() {
+
+    const data =
+      await API.dashboard();
+
+    const projects =
+      filterByProject(
+        data.projects,
+        "id"
+      );
+
+    const content =
+      filterByProjectName(
+        data.recentContent
+      );
+
+    page.innerHTML = "";
+
+    page.appendChild(
+      heading(
+        "COMMAND CENTRE",
+        greeting(),
+        activeProjectName() ===
+          "All projects"
+          ? "Everything that needs your attention."
+          : activeProjectName()
+      )
+    );
+
+
+    const grid =
+      el(
+        "div",
+        "dashboard-grid"
+      );
+
+
+    grid.appendChild(
+      metricCard(
+        "Active projects",
+        projects.length
+      )
+    );
+
+    grid.appendChild(
+      metricCard(
+        "Content in motion",
+        content.filter(
+          item =>
+            ![
+              "published",
+              "archived"
+            ].includes(
+              item.status
+            )
+        ).length
+      )
+    );
+
+    grid.appendChild(
+      metricCard(
+        "Idea inbox",
+        data.ideaCount
+      )
+    );
+
+
+    grid.appendChild(
+      dashboardListCard(
+        "Recent content",
+        content,
+        item => ({
+          title: item.title,
+          subtitle:
+            `${item.project_name} · ` +
+            titleCase(
+              item.content_type
+            ),
+          status: item.status
+        }),
+        "No content yet.",
+        "span-8"
+      )
+    );
+
+
+    grid.appendChild(
+      dashboardListCard(
+        "Publishing queue",
+        data.publications,
+        item => ({
+          title: item.title,
+          subtitle:
+            `${titleCase(
+              item.platform
+            )} · ${
+              item.account_name
+            }`,
+          status:
+            item.publish_state
+        }),
+        "Nothing queued yet.",
+        "span-4"
+      )
+    );
+
+
+    grid.appendChild(
+      dashboardListCard(
+        "Tasks",
+        data.tasks,
+        item => ({
+          title: item.title,
+          subtitle:
+            item.project_name ||
+            "General",
+          status: item.priority
+        }),
+        "No outstanding tasks.",
+        "span-6"
+      )
+    );
+
+
+    grid.appendChild(
+      dashboardListCard(
+        "Projects",
+        projects,
+        item => ({
+          title: item.name,
+          subtitle:
+            titleCase(
+              item.project_type
+            ),
+          status: item.status
+        }),
+        "Create your first project.",
+        "span-6"
+      )
+    );
+
+
+    page.appendChild(grid);
+
+  }
+
+
+  async function renderProjects() {
+
+    const response =
+      await API.projects();
+
+    state.projects =
+      response.projects;
+
+    renderProjectSelectors();
+
+    const projects =
+      filterByProject(
+        state.projects,
+        "id"
+      );
+
+
+    page.innerHTML = "";
+
+    page.appendChild(
+      heading(
+        "WORKSPACES",
+        "Projects",
+        "Keep every brand, build and content machine separated.",
+        "New project",
+        () =>
+          projectDialog.showModal()
+      )
+    );
+
+
+    if (!projects.length) {
+
+      page.appendChild(
+        emptyState(
+          "◇",
+          "No projects",
+          "Create a workspace for a brand, game, website or content channel."
+        )
+      );
 
       return;
     }
 
-    console.error(error);
 
-    document
-      .getElementById(
-        "welcome-heading"
-      )
-      .textContent =
-        "Dashboard unavailable";
-  }
-}
+    const grid =
+      el(
+        "div",
+        "project-grid"
+      );
 
 
-function bindEvents() {
+    for (
+      const project of projects
+    ) {
 
-  document
-    .getElementById(
-      "logout-button"
-    )
-    .addEventListener(
-      "click",
-      logout
-    );
-
-
-  document
-    .getElementById(
-      "new-project-button"
-    )
-    .addEventListener(
-      "click",
-      openProjectDialog
-    );
-
-
-  document
-    .getElementById(
-      "close-project-dialog"
-    )
-    .addEventListener(
-      "click",
-      closeProjectDialog
-    );
-
-
-  document
-    .getElementById(
-      "project-form"
-    )
-    .addEventListener(
-      "submit",
-      createProject
-    );
-
-
-  document
-    .getElementById(
-      "quick-create"
-    )
-    .addEventListener(
-      "click",
-      () => {
-        alert(
-          "Content Composer is Build #3."
+      const card =
+        el(
+          "article",
+          "project-card"
         );
+
+      card.style.setProperty(
+        "--project-accent",
+        project.accent_colour ||
+          "#8b5cf6"
+      );
+
+
+      const accent =
+        el(
+          "div",
+          "project-accent"
+        );
+
+      const title =
+        document.createElement("h3");
+
+      title.textContent =
+        project.name;
+
+
+      const description =
+        document.createElement("p");
+
+      description.textContent =
+        project.description ||
+        `${titleCase(
+          project.project_type
+        )} project`;
+
+
+      const meta =
+        el(
+          "div",
+          "project-meta"
+        );
+
+      meta.textContent =
+        `${project.content_count} content · ` +
+        `${project.account_count} accounts · ` +
+        `${titleCase(
+          project.status
+        )}`;
+
+
+      card.append(
+        accent,
+        title,
+        description,
+        meta
+      );
+
+      grid.appendChild(card);
+
+    }
+
+
+    page.appendChild(grid);
+
+  }
+
+
+  async function renderContent() {
+
+    const response =
+      await API.content({
+        projectId:
+          state.activeProjectId
+      });
+
+    const items =
+      response.content;
+
+
+    page.innerHTML = "";
+
+    page.appendChild(
+      heading(
+        "CONTENT ENGINE",
+        "Pipeline",
+        "Move ideas from concept to ready-to-publish.",
+        "Create",
+        openCreateSheet
+      )
+    );
+
+
+    if (!items.length) {
+
+      page.appendChild(
+        emptyState(
+          "▤",
+          "Nothing in the pipeline",
+          "Create your first piece of content and start moving it through production."
+        )
+      );
+
+      return;
+    }
+
+
+    const stages = [
+      "idea",
+      "script",
+      "recording",
+      "editing",
+      "ready"
+    ];
+
+
+    const pipeline =
+      el(
+        "div",
+        "pipeline"
+      );
+
+
+    for (
+      const stage of stages
+    ) {
+
+      const column =
+        el(
+          "section",
+          "pipeline-column"
+        );
+
+      const stageItems =
+        items.filter(
+          item =>
+            item.status === stage
+        );
+
+
+      const columnHeading =
+        el(
+          "div",
+          "pipeline-heading"
+        );
+
+
+      const label =
+        document.createElement("span");
+
+      label.textContent =
+        titleCase(stage);
+
+
+      const count =
+        el(
+          "span",
+          "pipeline-count"
+        );
+
+      count.textContent =
+        stageItems.length;
+
+
+      columnHeading.append(
+        label,
+        count
+      );
+
+      column.appendChild(
+        columnHeading
+      );
+
+
+      for (
+        const item of stageItems
+      ) {
+
+        column.appendChild(
+          contentCard(item)
+        );
+
+      }
+
+
+      pipeline.appendChild(
+        column
+      );
+
+    }
+
+
+    page.appendChild(pipeline);
+
+  }
+
+
+  function contentCard(item) {
+
+    const card =
+      el(
+        "article",
+        "content-card"
+      );
+
+
+    const title =
+      document.createElement(
+        "strong"
+      );
+
+    title.textContent =
+      item.title;
+
+
+    const meta =
+      document.createElement(
+        "small"
+      );
+
+    meta.textContent =
+      `${item.project_name} · ` +
+      titleCase(
+        item.content_type
+      );
+
+
+    const select =
+      document.createElement(
+        "select"
+      );
+
+
+    const stages = [
+      "idea",
+      "script",
+      "recording",
+      "editing",
+      "ready",
+      "scheduled",
+      "published",
+      "archived"
+    ];
+
+
+    for (
+      const stage of stages
+    ) {
+
+      addOption(
+        select,
+        stage,
+        titleCase(stage)
+      );
+
+    }
+
+
+    select.value =
+      item.status;
+
+
+    select.addEventListener(
+      "change",
+      async () => {
+
+        const previous =
+          item.status;
+
+        try {
+
+          await API
+            .updateContentStatus(
+              item.id,
+              select.value
+            );
+
+          showToast(
+            "Content stage updated."
+          );
+
+          await navigate(
+            "content",
+            false
+          );
+
+        } catch (error) {
+
+          select.value =
+            previous;
+
+          showToast(
+            readableError(error),
+            true
+          );
+
+        }
+
       }
     );
-}
 
 
-function render() {
-
-  document
-    .getElementById(
-      "welcome-heading"
-    )
-    .textContent =
-      `Morning, ${state.user.displayName}.`;
-
-  renderProjects();
-
-  renderTasks();
-
-  renderPublications();
-}
-
-
-function renderProjects() {
-
-  const container =
-    document.getElementById(
-      "project-grid"
+    card.append(
+      title,
+      meta,
+      select
     );
 
-  container.replaceChildren();
 
-  if (!state.projects.length) {
+    return card;
 
-    container.appendChild(
-      emptyState(
-        "No projects yet.",
-        "Create the first one."
+  }
+
+
+  async function renderIdeas() {
+
+    const response =
+      await API.ideas();
+
+    let ideas =
+      response.ideas;
+
+
+    if (
+      state.activeProjectId
+    ) {
+
+      ideas =
+        ideas.filter(
+          idea =>
+            String(
+              idea.project_id
+            ) ===
+            String(
+              state.activeProjectId
+            )
+        );
+
+    }
+
+
+    page.innerHTML = "";
+
+    page.appendChild(
+      heading(
+        "CAPTURE FIRST",
+        "Ideas",
+        "Get it out of your head before it disappears.",
+        "Capture idea",
+        () =>
+          ideaDialog.showModal()
       )
     );
 
-    return;
+
+    if (!ideas.length) {
+
+      page.appendChild(
+        emptyState(
+          "✦",
+          "Idea inbox is empty",
+          "Good. Or worrying. Capture something before you forget it."
+        )
+      );
+
+      return;
+    }
+
+
+    const grid =
+      el(
+        "div",
+        "idea-grid"
+      );
+
+
+    for (
+      const idea of ideas
+    ) {
+
+      const card =
+        el(
+          "article",
+          "idea-card"
+        );
+
+
+      const title =
+        document.createElement(
+          "h3"
+        );
+
+      title.textContent =
+        idea.title;
+
+
+      const description =
+        document.createElement(
+          "p"
+        );
+
+      description.textContent =
+        idea.description ||
+        "No notes yet.";
+
+
+      const meta =
+        el(
+          "div",
+          "project-meta"
+        );
+
+      meta.textContent =
+        `${idea.project_name ||
+          "Unassigned"} · ` +
+        titleCase(
+          idea.status
+        );
+
+
+      card.append(
+        title,
+        description,
+        meta
+      );
+
+      grid.appendChild(card);
+
+    }
+
+
+    page.appendChild(grid);
+
   }
 
-  for (
-    const project of state.projects
+
+  async function renderAccounts() {
+
+    const response =
+      await API.accounts();
+
+    let accounts =
+      response.accounts;
+
+
+    if (
+      state.activeProjectId
+    ) {
+
+      accounts =
+        accounts.filter(
+          account =>
+            String(
+              account.project_id
+            ) ===
+            String(
+              state.activeProjectId
+            )
+        );
+
+    }
+
+
+    page.innerHTML = "";
+
+    page.appendChild(
+      heading(
+        "SOCIAL CONTROL",
+        "Accounts",
+        "One place for every brand account. OAuth connections arrive in Build 3.",
+        "Add account",
+        () =>
+          accountDialog.showModal()
+      )
+    );
+
+
+    if (!accounts.length) {
+
+      page.appendChild(
+        emptyState(
+          "◎",
+          "No social accounts",
+          "Register your TikTok, YouTube and Instagram accounts here. We connect OAuth next."
+        )
+      );
+
+      return;
+    }
+
+
+    const grid =
+      el(
+        "div",
+        "account-grid"
+      );
+
+
+    for (
+      const account of accounts
+    ) {
+
+      const card =
+        el(
+          "article",
+          "account-card"
+        );
+
+
+      const icon =
+        el(
+          "div",
+          "platform-icon"
+        );
+
+      icon.textContent =
+        platformIcon(
+          account.platform
+        );
+
+
+      const body =
+        el(
+          "div",
+          "account-body"
+        );
+
+
+      const title =
+        document.createElement(
+          "h3"
+        );
+
+      title.textContent =
+        account.account_name;
+
+
+      const handle =
+        document.createElement(
+          "small"
+        );
+
+      handle.textContent =
+        account.account_handle ||
+        titleCase(
+          account.platform
+        );
+
+
+      const footer =
+        el(
+          "div",
+          "account-footer"
+        );
+
+
+      const project =
+        document.createElement(
+          "small"
+        );
+
+      project.textContent =
+        account.project_name ||
+        "Unassigned";
+
+
+      const status =
+        statusPill(
+          account.status
+        );
+
+
+      footer.append(
+        project,
+        status
+      );
+
+
+      body.append(
+        title,
+        handle,
+        footer
+      );
+
+
+      card.append(
+        icon,
+        body
+      );
+
+      grid.appendChild(card);
+
+    }
+
+
+    page.appendChild(grid);
+
+  }
+
+
+  async function renderCalendar() {
+
+    const response =
+      await API.calendar();
+
+    let events =
+      response.events;
+
+
+    if (
+      state.activeProjectId
+    ) {
+
+      const active =
+        state.projects.find(
+          project =>
+            String(
+              project.id
+            ) ===
+            String(
+              state.activeProjectId
+            )
+        );
+
+      if (active) {
+
+        events =
+          events.filter(
+            event =>
+              event.project_name ===
+              active.name
+          );
+
+      }
+
+    }
+
+
+    page.innerHTML = "";
+
+    page.appendChild(
+      heading(
+        "PUBLISHING",
+        "Calendar",
+        "Scheduled and published content across every connected platform."
+      )
+    );
+
+
+    if (!events.length) {
+
+      page.appendChild(
+        emptyState(
+          "□",
+          "Calendar is clear",
+          "Scheduled publications will appear here once platform publishing is connected."
+        )
+      );
+
+      return;
+    }
+
+
+    const list =
+      el(
+        "div",
+        "calendar-list"
+      );
+
+
+    for (
+      const event of events
+    ) {
+
+      const row =
+        el(
+          "article",
+          "calendar-row"
+        );
+
+
+      const date =
+        el(
+          "div",
+          "calendar-date"
+        );
+
+
+      const dateStrong =
+        document.createElement(
+          "strong"
+        );
+
+      const dateSmall =
+        document.createElement(
+          "span"
+        );
+
+
+      const when =
+        new Date(
+          event.scheduled_at ||
+          event.published_at
+        );
+
+
+      dateStrong.textContent =
+        when.toLocaleDateString(
+          undefined,
+          {
+            day: "2-digit",
+            month: "short"
+          }
+        );
+
+
+      dateSmall.textContent =
+        when.toLocaleTimeString(
+          undefined,
+          {
+            hour: "2-digit",
+            minute: "2-digit"
+          }
+        );
+
+
+      date.append(
+        dateStrong,
+        dateSmall
+      );
+
+
+      const content =
+        el(
+          "div",
+          "calendar-content"
+        );
+
+
+      const title =
+        document.createElement(
+          "strong"
+        );
+
+      title.textContent =
+        event.content_title;
+
+
+      const meta =
+        document.createElement(
+          "span"
+        );
+
+      meta.textContent =
+        `${event.project_name} · ` +
+        `${titleCase(
+          event.platform
+        )} · ` +
+        `${event.account_name}`;
+
+
+      content.append(
+        title,
+        meta
+      );
+
+
+      row.append(
+        date,
+        content,
+        statusPill(
+          event.publish_state
+        )
+      );
+
+
+      list.appendChild(row);
+
+    }
+
+
+    page.appendChild(list);
+
+  }
+
+
+  async function submitContent(event) {
+
+    event.preventDefault();
+
+
+    if (
+      !state.projects.length
+    ) {
+
+      closeSheets();
+
+      showToast(
+        "Create a project first.",
+        true
+      );
+
+      await navigate(
+        "projects"
+      );
+
+      projectDialog.showModal();
+
+      return;
+
+    }
+
+
+    const button =
+      event.submitter;
+
+    button.disabled = true;
+
+
+    try {
+
+      await API.createContent({
+
+        projectId:
+          Number(
+            document.getElementById(
+              "contentProject"
+            ).value
+          ),
+
+        title:
+          document.getElementById(
+            "contentTitle"
+          ).value,
+
+        description:
+          document.getElementById(
+            "contentDescription"
+          ).value,
+
+        contentType:
+          document.getElementById(
+            "contentType"
+          ).value,
+
+        status:
+          document.getElementById(
+            "contentStatus"
+          ).value
+
+      });
+
+
+      event.target.reset();
+
+      closeSheets();
+
+      showToast(
+        "Content created."
+      );
+
+      await navigate(
+        "content"
+      );
+
+    } catch (error) {
+
+      showToast(
+        readableError(error),
+        true
+      );
+
+    } finally {
+
+      button.disabled = false;
+
+    }
+
+  }
+
+
+  async function submitProject(
+    event
+  ) {
+
+    event.preventDefault();
+
+    const button =
+      event.submitter;
+
+    button.disabled = true;
+
+
+    try {
+
+      await API.createProject({
+
+        name:
+          document.getElementById(
+            "projectName"
+          ).value,
+
+        description:
+          document.getElementById(
+            "projectDescription"
+          ).value,
+
+        projectType:
+          document.getElementById(
+            "projectType"
+          ).value,
+
+        accentColour:
+          document.getElementById(
+            "projectColour"
+          ).value
+
+      });
+
+
+      event.target.reset();
+
+      document.getElementById(
+        "projectColour"
+      ).value =
+        "#8b5cf6";
+
+
+      projectDialog.close();
+
+      await loadProjects();
+
+      showToast(
+        "Project created."
+      );
+
+      await navigate(
+        "projects",
+        false
+      );
+
+    } catch (error) {
+
+      showToast(
+        readableError(error),
+        true
+      );
+
+    } finally {
+
+      button.disabled = false;
+
+    }
+
+  }
+
+
+  async function submitIdea(
+    event
+  ) {
+
+    event.preventDefault();
+
+    const button =
+      event.submitter;
+
+    button.disabled = true;
+
+
+    try {
+
+      await API.createIdea({
+
+        title:
+          document.getElementById(
+            "ideaTitle"
+          ).value,
+
+        description:
+          document.getElementById(
+            "ideaDescription"
+          ).value,
+
+        projectId:
+          document.getElementById(
+            "ideaProject"
+          ).value,
+
+        ideaType:
+          "content"
+
+      });
+
+
+      event.target.reset();
+
+      ideaDialog.close();
+
+      showToast(
+        "Idea captured."
+      );
+
+      await navigate(
+        "ideas",
+        false
+      );
+
+    } catch (error) {
+
+      showToast(
+        readableError(error),
+        true
+      );
+
+    } finally {
+
+      button.disabled = false;
+
+    }
+
+  }
+
+
+  async function submitAccount(
+    event
+  ) {
+
+    event.preventDefault();
+
+    const button =
+      event.submitter;
+
+    button.disabled = true;
+
+
+    try {
+
+      await API.createAccount({
+
+        projectId:
+          Number(
+            document.getElementById(
+              "accountProject"
+            ).value
+          ),
+
+        platform:
+          document.getElementById(
+            "accountPlatform"
+          ).value,
+
+        accountName:
+          document.getElementById(
+            "accountName"
+          ).value,
+
+        accountHandle:
+          document.getElementById(
+            "accountHandle"
+          ).value
+
+      });
+
+
+      event.target.reset();
+
+      accountDialog.close();
+
+      showToast(
+        "Account added."
+      );
+
+      await navigate(
+        "accounts",
+        false
+      );
+
+    } catch (error) {
+
+      showToast(
+        readableError(error),
+        true
+      );
+
+    } finally {
+
+      button.disabled = false;
+
+    }
+
+  }
+
+
+  function openCreateSheet() {
+
+    if (
+      !state.projects.length
+    ) {
+
+      showToast(
+        "Create a project first.",
+        true
+      );
+
+      navigate(
+        "projects"
+      );
+
+      setTimeout(
+        () =>
+          projectDialog
+            .showModal(),
+        100
+      );
+
+      return;
+
+    }
+
+
+    const projectSelect =
+      document.getElementById(
+        "contentProject"
+      );
+
+
+    if (
+      state.activeProjectId
+    ) {
+
+      projectSelect.value =
+        state.activeProjectId;
+
+    }
+
+
+    openSheet(
+      createSheet
+    );
+
+  }
+
+
+  function openSheet(sheet) {
+
+    closeSheets();
+
+    backdrop.hidden = false;
+
+    sheet.classList.add(
+      "open"
+    );
+
+    sheet.setAttribute(
+      "aria-hidden",
+      "false"
+    );
+
+  }
+
+
+  function closeSheets() {
+
+    for (
+      const sheet of
+        [
+          createSheet,
+          moreSheet
+        ]
+    ) {
+
+      sheet.classList.remove(
+        "open"
+      );
+
+      sheet.setAttribute(
+        "aria-hidden",
+        "true"
+      );
+
+    }
+
+    backdrop.hidden = true;
+
+  }
+
+
+  async function logout() {
+
+    try {
+
+      await API.logout();
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      window.location.href =
+        "./login.html";
+
+    }
+
+  }
+
+
+  function heading(
+    eyebrow,
+    title,
+    description,
+    actionLabel,
+    action
+  ) {
+
+    const wrapper =
+      el(
+        "header",
+        "page-heading"
+      );
+
+
+    const text =
+      document.createElement(
+        "div"
+      );
+
+
+    const eyebrowEl =
+      el(
+        "span",
+        "eyebrow"
+      );
+
+    eyebrowEl.textContent =
+      eyebrow;
+
+
+    const h1 =
+      document.createElement(
+        "h1"
+      );
+
+    h1.textContent =
+      title;
+
+
+    const p =
+      document.createElement(
+        "p"
+      );
+
+    p.textContent =
+      description;
+
+
+    text.append(
+      eyebrowEl,
+      h1,
+      p
+    );
+
+
+    wrapper.appendChild(text);
+
+
+    if (
+      actionLabel &&
+      action
+    ) {
+
+      const button =
+        el(
+          "button",
+          "secondary-button"
+        );
+
+      button.type =
+        "button";
+
+      button.textContent =
+        actionLabel;
+
+      button.addEventListener(
+        "click",
+        action
+      );
+
+      wrapper.appendChild(
+        button
+      );
+
+    }
+
+
+    return wrapper;
+
+  }
+
+
+  function metricCard(
+    label,
+    number
   ) {
 
     const card =
-      document.createElement("div");
-
-    card.className =
-      "project-card";
-
-    if (project.accent_colour) {
-      card.style.setProperty(
-        "--project-accent",
-        project.accent_colour
+      el(
+        "article",
+        "card span-4 metric-card"
       );
-    }
 
-    const accent =
-      document.createElement("span");
 
-    accent.className =
-      "project-accent";
+    const labelEl =
+      el(
+        "span",
+        "metric-label"
+      );
 
-    const body =
-      document.createElement("div");
+    labelEl.textContent =
+      label;
 
-    const name =
-      document.createElement("strong");
 
-    name.textContent =
-      project.name;
+    const numberEl =
+      el(
+        "strong",
+        "metric-number"
+      );
 
-    const meta =
-      document.createElement("small");
+    numberEl.textContent =
+      number;
 
-    meta.textContent =
-      project.project_type;
-
-    body.append(
-      name,
-      meta
-    );
 
     card.append(
-      accent,
-      body
+      labelEl,
+      numberEl
     );
 
-    container.appendChild(card);
+
+    return card;
+
   }
-}
 
 
-function renderTasks() {
+  function dashboardListCard(
+    title,
+    items,
+    mapper,
+    emptyMessage,
+    span
+  ) {
 
-  const container =
-    document.getElementById(
-      "task-list"
+    const card =
+      el(
+        "article",
+        `card ${span}`
+      );
+
+
+    const cardHeading =
+      el(
+        "div",
+        "card-heading"
+      );
+
+
+    const h2 =
+      document.createElement(
+        "h2"
+      );
+
+    h2.textContent =
+      title;
+
+
+    const count =
+      document.createElement(
+        "span"
+      );
+
+    count.textContent =
+      `${items.length}`;
+
+
+    cardHeading.append(
+      h2,
+      count
     );
 
-  container.replaceChildren();
+    card.appendChild(
+      cardHeading
+    );
 
-  if (!state.tasks.length) {
 
-    container.appendChild(
+    if (!items.length) {
+
+      const p =
+        document.createElement(
+          "p"
+        );
+
+      p.className =
+        "metric-label";
+
+      p.textContent =
+        emptyMessage;
+
+      card.appendChild(p);
+
+      return card;
+
+    }
+
+
+    const list =
+      el(
+        "div",
+        "list"
+      );
+
+
+    for (
+      const item of
+        items.slice(0, 6)
+    ) {
+
+      const mapped =
+        mapper(item);
+
+
+      const row =
+        el(
+          "div",
+          "list-row"
+        );
+
+
+      const main =
+        el(
+          "div",
+          "list-row-main"
+        );
+
+
+      const strong =
+        document.createElement(
+          "strong"
+        );
+
+      strong.textContent =
+        mapped.title;
+
+
+      const small =
+        document.createElement(
+          "small"
+        );
+
+      small.textContent =
+        mapped.subtitle;
+
+
+      main.append(
+        strong,
+        small
+      );
+
+
+      row.append(
+        main,
+        statusPill(
+          mapped.status
+        )
+      );
+
+
+      list.appendChild(row);
+
+    }
+
+
+    card.appendChild(list);
+
+    return card;
+
+  }
+
+
+  function statusPill(status) {
+
+    const pill =
+      el(
+        "span",
+        `status-pill ${
+          status || ""
+        }`
+      );
+
+    pill.textContent =
+      titleCase(
+        status || "unknown"
+      );
+
+    return pill;
+
+  }
+
+
+  function emptyState(
+    icon,
+    title,
+    description
+  ) {
+
+    const wrapper =
+      el(
+        "div",
+        "empty-state"
+      );
+
+
+    const iconEl =
+      el(
+        "div",
+        "empty-icon"
+      );
+
+    iconEl.textContent =
+      icon;
+
+
+    const strong =
+      document.createElement(
+        "strong"
+      );
+
+    strong.textContent =
+      title;
+
+
+    const p =
+      document.createElement(
+        "p"
+      );
+
+    p.textContent =
+      description;
+
+
+    wrapper.append(
+      iconEl,
+      strong,
+      p
+    );
+
+
+    return wrapper;
+
+  }
+
+
+  function showLoading() {
+
+    page.innerHTML = `
+      <div class="loading">
+        <div class="loading-inner">
+          <div class="spinner"></div>
+          <span>Loading…</span>
+        </div>
+      </div>
+    `;
+
+  }
+
+
+  function showFatal(message) {
+
+    page.innerHTML = "";
+
+    page.appendChild(
       emptyState(
-        "Nothing urgent.",
-        "Beautiful."
+        "!",
+        "Project Hub unavailable",
+        message
       )
     );
 
-    return;
   }
 
-  for (const task of state.tasks) {
 
-    const row =
-      document.createElement("div");
+  function showToast(
+    message,
+    error = false
+  ) {
 
-    row.className =
-      "list-row";
+    toast.textContent =
+      message;
 
-    const body =
-      document.createElement("div");
+    toast.classList.toggle(
+      "error",
+      error
+    );
 
-    const title =
-      document.createElement("strong");
+    toast.hidden = false;
 
-    title.textContent =
-      task.title;
+
+    clearTimeout(
+      showToast.timeout
+    );
+
+
+    showToast.timeout =
+      setTimeout(
+        () => {
+          toast.hidden = true;
+        },
+        3000
+      );
+
+  }
+
+
+  function filterByProject(
+    items,
+    idProperty
+  ) {
+
+    if (
+      !state.activeProjectId
+    ) {
+      return items;
+    }
+
+    return items.filter(
+      item =>
+        String(
+          item[idProperty]
+        ) ===
+        String(
+          state.activeProjectId
+        )
+    );
+
+  }
+
+
+  function filterByProjectName(
+    items
+  ) {
+
+    if (
+      !state.activeProjectId
+    ) {
+      return items;
+    }
+
 
     const project =
-      document.createElement("small");
+      state.projects.find(
+        item =>
+          String(item.id) ===
+          String(
+            state.activeProjectId
+          )
+      );
 
-    project.textContent =
-      task.project_name ||
-      "General";
 
-    body.append(
-      title,
-      project
+    if (!project) {
+      return items;
+    }
+
+
+    return items.filter(
+      item =>
+        item.project_name ===
+        project.name
     );
 
-    const status =
-      document.createElement("span");
-
-    status.className =
-      `badge ${task.priority}`;
-
-    status.textContent =
-      task.priority;
-
-    row.append(
-      body,
-      status
-    );
-
-    container.appendChild(row);
   }
-}
 
 
-function renderPublications() {
+  function activeProjectName() {
 
-  const container =
-    document.getElementById(
-      "publication-list"
-    );
+    if (
+      !state.activeProjectId
+    ) {
+      return "All projects";
+    }
 
-  container.replaceChildren();
 
-  if (
-    !state.publications.length
+    const project =
+      state.projects.find(
+        item =>
+          String(item.id) ===
+          String(
+            state.activeProjectId
+          )
+      );
+
+
+    return project
+      ? project.name
+      : "All projects";
+
+  }
+
+
+  function greeting() {
+
+    const hour =
+      new Date().getHours();
+
+    const name =
+      state.user?.displayName ||
+      state.user?.username ||
+      "";
+
+
+    if (hour < 12) {
+      return `Morning, ${name}`;
+    }
+
+    if (hour < 18) {
+      return `Afternoon, ${name}`;
+    }
+
+    return `Evening, ${name}`;
+
+  }
+
+
+  function routeLabel(route) {
+
+    const labels = {
+      today: "Today",
+      content: "Content",
+      calendar: "Calendar",
+      projects: "Projects",
+      ideas: "Ideas",
+      accounts: "Accounts"
+    };
+
+    return labels[route] ||
+      "Project Hub";
+
+  }
+
+
+  function platformIcon(
+    platform
   ) {
 
-    container.appendChild(
-      emptyState(
-        "Queue empty.",
-        "Nothing scheduled yet."
-      )
-    );
+    const icons = {
+      tiktok: "♪",
+      youtube: "▶",
+      instagram: "◎"
+    };
 
-    return;
+    return icons[platform] ||
+      "◎";
+
   }
 
-  for (
-    const post of
-    state.publications
+
+  function titleCase(value) {
+
+    if (!value) {
+      return "";
+    }
+
+    return String(value)
+      .replace(
+        /[_-]+/g,
+        " "
+      )
+      .replace(
+        /\b\w/g,
+        character =>
+          character.toUpperCase()
+      );
+
+  }
+
+
+  function readableError(error) {
+
+    const value =
+      error?.data?.error ||
+      error?.message ||
+      "Something went wrong.";
+
+
+    return titleCase(value);
+
+  }
+
+
+  function addOption(
+    select,
+    value,
+    label
   ) {
 
-    const row =
-      document.createElement("div");
+    const option =
+      document.createElement(
+        "option"
+      );
 
-    row.className =
-      "list-row";
+    option.value =
+      value;
 
-    const body =
-      document.createElement("div");
+    option.textContent =
+      label;
 
-    const title =
-      document.createElement("strong");
-
-    title.textContent =
-      post.title;
-
-    const account =
-      document.createElement("small");
-
-    account.textContent =
-      `${post.platform} • ` +
-      `${post.account_name}`;
-
-    body.append(
-      title,
-      account
+    select.appendChild(
+      option
     );
 
-    const stateBadge =
-      document.createElement("span");
-
-    stateBadge.className =
-      "badge";
-
-    stateBadge.textContent =
-      post.publish_state;
-
-    row.append(
-      body,
-      stateBadge
-    );
-
-    container.appendChild(row);
   }
-}
 
 
-function emptyState(
-  titleText,
-  subtitleText
-) {
+  function el(
+    tag,
+    className
+  ) {
 
-  const element =
-    document.createElement("div");
+    const element =
+      document.createElement(
+        tag
+      );
 
-  element.className =
-    "empty-state";
+    if (className) {
+      element.className =
+        className;
+    }
 
-  const title =
-    document.createElement("strong");
+    return element;
 
-  title.textContent =
-    titleText;
-
-  const subtitle =
-    document.createElement("span");
-
-  subtitle.textContent =
-    subtitleText;
-
-  element.append(
-    title,
-    subtitle
-  );
-
-  return element;
-}
-
-
-function openProjectDialog() {
-
-  document
-    .getElementById(
-      "project-dialog"
-    )
-    .showModal();
-}
-
-
-function closeProjectDialog() {
-
-  document
-    .getElementById(
-      "project-dialog"
-    )
-    .close();
-}
-
-
-async function createProject(event) {
-
-  event.preventDefault();
-
-  const project = {
-
-    name:
-      document
-        .getElementById(
-          "project-name"
-        )
-        .value,
-
-    projectType:
-      document
-        .getElementById(
-          "project-type"
-        )
-        .value,
-
-    description:
-      document
-        .getElementById(
-          "project-description"
-        )
-        .value,
-
-    accentColour:
-      document
-        .getElementById(
-          "project-colour"
-        )
-        .value
-  };
-
-  try {
-
-    await ProjectHubAPI
-      .createProject(project);
-
-    closeProjectDialog();
-
-    document
-      .getElementById(
-        "project-form"
-      )
-      .reset();
-
-    await initialise();
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert(
-      "Project could not be created."
-    );
   }
-}
 
-
-async function logout() {
-
-  try {
-    await ProjectHubAPI.logout();
-  } finally {
-
-    window.location.href =
-      "./login.html";
-  }
-}
+})();
