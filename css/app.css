@@ -37,7 +37,41 @@ html {
   background: var(--bg);
   color-scheme: dark;
 }
+.social-connect-controls {
+  display: grid;
 
+  grid-template-columns:
+    minmax(180px, 1fr)
+    auto
+    auto;
+
+  gap: 10px;
+
+  align-items: center;
+}
+
+.social-connect-controls
+.project-switcher {
+  width: 100%;
+  max-width: none;
+}
+
+@media (
+  max-width: 700px
+) {
+
+  .social-connect-controls {
+    grid-template-columns:
+      1fr;
+  }
+
+  .social-connect-controls
+  .secondary-button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+}
 body {
   margin: 0;
   min-height: 100vh;
