@@ -1,1 +1,180 @@
+<!doctype html>
 
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+
+  <meta
+    name="robots"
+    content="noindex,nofollow"
+  >
+
+  <title>
+    Project Hub — Login
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="./css/app.css"
+  >
+
+</head>
+
+<body class="login-page">
+
+  <main class="login-shell">
+
+    <section class="login-card">
+
+      <div class="brand-mark">
+        KH
+      </div>
+
+      <p class="eyebrow">
+        COMMAND CENTRE
+      </p>
+
+      <h1>
+        Welcome back.
+      </h1>
+
+      <p class="muted">
+        Projects. Content. Everything.
+      </p>
+
+      <form
+        id="login-form"
+        class="login-form"
+      >
+
+        <label>
+          Username
+
+          <input
+            id="username"
+            name="username"
+            type="text"
+            autocomplete="username"
+            required
+            maxlength="100"
+          >
+        </label>
+
+        <label>
+          Password
+
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            maxlength="500"
+          >
+        </label>
+
+        <p
+          id="login-error"
+          class="error-message"
+          hidden
+        ></p>
+
+        <button
+          id="login-button"
+          class="primary-button"
+          type="submit"
+        >
+          Enter Command Centre
+        </button>
+
+      </form>
+
+    </section>
+
+  </main>
+
+  <script src="./js/config.js"></script>
+  <script src="./js/api.js"></script>
+
+  <script>
+  "use strict";
+
+  const form =
+    document.getElementById(
+      "login-form"
+    );
+
+  const errorElement =
+    document.getElementById(
+      "login-error"
+    );
+
+  const button =
+    document.getElementById(
+      "login-button"
+    );
+
+
+  form.addEventListener(
+    "submit",
+    async event => {
+
+      event.preventDefault();
+
+      errorElement.hidden = true;
+
+      button.disabled = true;
+
+      button.textContent =
+        "Signing in...";
+
+      const username =
+        document
+          .getElementById("username")
+          .value;
+
+      const password =
+        document
+          .getElementById("password")
+          .value;
+
+      try {
+
+        await ProjectHubAPI.login(
+          username,
+          password
+        );
+
+        window.location.href =
+          "./index.html";
+
+      } catch {
+
+        errorElement.textContent =
+          "Incorrect username or password.";
+
+        errorElement.hidden = false;
+
+      } finally {
+
+        button.disabled = false;
+
+        button.textContent =
+          "Enter Command Centre";
+
+      }
+
+    }
+  );
+  </script>
+
+</body>
+
+</html>
