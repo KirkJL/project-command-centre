@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#090b10"
+  >
+
+  <title>Project Command Centre</title>
+
+  <link
+    rel="stylesheet"
+    href="./css/app.css"
+  >
+</head>
+
+<body>
+
+  <div class="app-shell">
+
+    <!-- =========================
+         DESKTOP SIDEBAR
+    ========================== -->
+
+    <aside class="sidebar">
+
+      <div class="brand-block">
+        <div class="brand-mark">P</div>
+
+        <div>
+          <strong>Project Hub</strong>
+          <span>Command Centre</span>
+        </div>
+      </div>
+
+      <label class="sidebar-label">
+        Workspace
+      </label>
+
+      <select
+        id="projectSwitcher"
+        class="project-switcher"
+      >
+        <option value="">
+          All workspaces
+        </option>
+      </select>
+
+      <nav class="desktop-nav">
+
+        <button
+          class="nav-button active"
+          data-route="today"
+          type="button"
+        >
+          <span>⌂</span>
+          Today
+        </button>
+
+        <button
+          class="nav-button"
+          data-route="content"
+          type="button"
+        >
+          <span>▶</span>
+          Content
+        </button>
+
+        <button
+          class="nav-button"
+          data-route="calendar"
+          type="button"
+        >
+          <span>▦</span>
+          Calendar
+        </button>
+
+        <button
+          class="nav-button"
+          data-route="projects"
+          type="button"
+        >
+          <span>◆</span>
+          Projects
+        </button>
+
+        <button
+          class="nav-button"
+          data-route="ideas"
+          type="button"
+        >
+          <span>✦</span>
+          Ideas
+        </button>
+
+        <button
+          class="nav-button"
+          data-route="accounts"
+          type="button"
+        >
+          <span>◎</span>
+          Accounts
+        </button>
+
+        <button
+          class="nav-button"
+          data-route="analytics"
+          type="button"
+        >
+          <span>↗</span>
+          Analytics
+        </button>
+
+      </nav>
+
+      <div class="sidebar-footer">
+        <button
+          id="logoutButton"
+          class="ghost-button"
+          type="button"
+        >
+          Sign out
+        </button>
+      </div>
+
+    </aside>
+
+
+    <!-- =========================
+         MAIN
+    ========================== -->
+
+    <section class="main-shell">
+
+      <header class="topbar">
+
+        <div>
+          <div class="mobile-brand">
+            Project Hub
+          </div>
+
+          <div
+            id="mobileSection"
+            class="section-kicker"
+          >
+            TODAY
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+
+          <button
+            id="createButton"
+            class="primary-button desktop-create"
+            type="button"
+          >
+            + Create Content
+          </button>
+
+          <button
+            id="userButton"
+            class="avatar-button"
+            type="button"
+            aria-label="User"
+          >
+            <span id="userInitial">
+              K
+            </span>
+          </button>
+
+        </div>
+
+      </header>
+
+
+      <main
+        id="page"
+        class="page"
+      >
+        <div class="loading-card">
+          Loading command centre…
+        </div>
+      </main>
+
+    </section>
+
+  </div>
+
+
+  <!-- =========================
+       MOBILE NAV
+  ========================== -->
+
+  <nav class="mobile-nav">
+
+    <button
+      data-route="today"
+      class="mobile-nav-button active"
+      type="button"
+    >
+      <span>⌂</span>
+      Today
+    </button>
+
+    <button
+      data-route="content"
+      class="mobile-nav-button"
+      type="button"
+    >
+      <span>▶</span>
+      Content
+    </button>
+
+    <button
+      id="mobileCreateButton"
+      class="mobile-create-button"
+      type="button"
+      aria-label="Create content"
+    >
+      +
+    </button>
+
+    <button
+      data-route="calendar"
+      class="mobile-nav-button"
+      type="button"
+    >
+      <span>▦</span>
+      Calendar
+    </button>
+
+    <button
+      id="moreButton"
+      class="mobile-nav-button"
+      type="button"
+    >
+      <span>•••</span>
+      More
+    </button>
+
+  </nav>
+
+
+  <!-- =========================
+       BACKDROP
+  ========================== -->
+
+  <div
+    id="backdrop"
+    class="backdrop"
+    hidden
+  ></div>
+
+
+  <!-- =========================
+       CREATE CONTENT SHEET
+  ========================== -->
+
+  <section
+    id="createSheet"
+    class="bottom-sheet"
+    hidden
+  >
+
+    <div class="sheet-handle"></div>
+
+    <div class="sheet-header">
+      <div>
+        <span class="eyebrow">
+          MASTER ASSET
+        </span>
+
+        <h2>Create Content</h2>
+      </div>
+
+      <button
+        class="icon-button"
+        data-close-sheet
+        type="button"
+      >
+        ×
+      </button>
+    </div>
+
+    <form id="contentForm">
+
+      <label>
+        Workspace
+
+        <select
+          id="contentProject"
+          required
+        ></select>
+      </label>
+
+      <label>
+        Title
+
+        <input
+          id="contentTitle"
+          maxlength="200"
+          required
+          placeholder="RS2 Was Hard — Episode 1"
+        >
+      </label>
+
+      <label>
+        Description
+
+        <textarea
+          id="contentDescription"
+          maxlength="5000"
+          placeholder="Notes, hook, edit direction..."
+        ></textarea>
+      </label>
+
+      <div class="form-grid">
+
+        <label>
+          Type
+
+          <select id="contentType">
+            <option value="video">
+              Video
+            </option>
+
+            <option value="image">
+              Image
+            </option>
+
+            <option value="carousel">
+              Carousel
+            </option>
+
+            <option value="text">
+              Text
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Stage
+
+          <select id="contentStatus">
+            <option value="idea">
+              Idea
+            </option>
+
+            <option value="script">
+              Script
+            </option>
+
+            <option value="recording">
+              Recording
+            </option>
+
+            <option value="editing">
+              Editing
+            </option>
+
+            <option value="ready">
+              Ready
+            </option>
+          </select>
+        </label>
+
+      </div>
+
+      <div class="platform-preview">
+        <div>
+          <strong>TikTok</strong>
+          <span>Publishing available</span>
+        </div>
+
+        <div>
+          <strong>YouTube</strong>
+          <span>Publishing available</span>
+        </div>
+
+        <div class="muted-platform">
+          <strong>Instagram</strong>
+          <span>Coming later</span>
+        </div>
+      </div>
+
+      <button
+        class="primary-button full-button"
+        type="submit"
+      >
+        Create Master Content
+      </button>
+
+    </form>
+
+  </section>
+
+
+  <!-- =========================
+       MORE SHEET
+  ========================== -->
+
+  <section
+    id="moreSheet"
+    class="bottom-sheet small-sheet"
+    hidden
+  >
+
+    <div class="sheet-handle"></div>
+
+    <div class="sheet-header">
+      <h2>More</h2>
+
+      <button
+        class="icon-button"
+        data-close-sheet
+        type="button"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="more-grid">
+
+      <button
+        data-more-route="projects"
+        type="button"
+      >
+        Projects
+      </button>
+
+      <button
+        data-more-route="ideas"
+        type="button"
+      >
+        Ideas
+      </button>
+
+      <button
+        data-more-route="accounts"
+        type="button"
+      >
+        Accounts
+      </button>
+
+      <button
+        data-more-route="analytics"
+        type="button"
+      >
+        Analytics
+      </button>
+
+    </div>
+
+    <button
+      id="mobileLogout"
+      class="danger-button full-button"
+      type="button"
+    >
+      Sign out
+    </button>
+
+  </section>
+
+
+  <!-- =========================
+       PUBLISHING COMPOSER
+  ========================== -->
+
+  <section
+    id="publishSheet"
+    class="bottom-sheet publish-sheet"
+    hidden
+  >
+
+    <div class="sheet-handle"></div>
+
+    <div class="sheet-header">
+
+      <div>
+        <span class="eyebrow">
+          PUBLISHING
+        </span>
+
+        <h2 id="publishTitle">
+          Schedule Content
+        </h2>
+
+        <p
+          id="publishProject"
+          class="muted-text"
+        ></p>
+      </div>
+
+      <button
+        class="icon-button"
+        data-close-sheet
+        type="button"
+      >
+        ×
+      </button>
+
+    </div>
+
+    <div
+      id="publishBody"
+      class="publish-body"
+    >
+      <div class="loading-card">
+        Loading accounts…
+      </div>
+    </div>
+
+  </section>
+
+
+  <!-- =========================
+       EDIT PUBLICATION SHEET
+  ========================== -->
+
+  <section
+    id="editPublicationSheet"
+    class="bottom-sheet"
+    hidden
+  >
+
+    <div class="sheet-handle"></div>
+
+    <div class="sheet-header">
+
+      <div>
+        <span class="eyebrow">
+          PUBLICATION
+        </span>
+
+        <h2>Edit Scheduled Post</h2>
+      </div>
+
+      <button
+        class="icon-button"
+        data-close-sheet
+        type="button"
+      >
+        ×
+      </button>
+
+    </div>
+
+    <form id="editPublicationForm">
+
+      <input
+        id="editPublicationId"
+        type="hidden"
+      >
+
+      <label>
+        Title
+
+        <input
+          id="editPublicationTitle"
+          maxlength="500"
+        >
+      </label>
+
+      <label>
+        Caption
+
+        <textarea
+          id="editPublicationCaption"
+          maxlength="5000"
+        ></textarea>
+      </label>
+
+      <label>
+        Description
+
+        <textarea
+          id="editPublicationDescription"
+          maxlength="10000"
+        ></textarea>
+      </label>
+
+      <label>
+        Schedule
+
+        <input
+          id="editPublicationSchedule"
+          type="datetime-local"
+        >
+      </label>
+
+      <button
+        class="primary-button full-button"
+        type="submit"
+      >
+        Save Changes
+      </button>
+
+    </form>
+
+  </section>
+
+
+  <!-- =========================
+       PROJECT DIALOG
+  ========================== -->
+
+  <dialog id="projectDialog">
+
+    <form id="projectForm">
+
+      <div class="dialog-header">
+        <h2>New Project</h2>
+
+        <button
+          id="closeProjectDialog"
+          class="icon-button"
+          type="button"
+        >
+          ×
+        </button>
+      </div>
+
+      <label>
+        Name
+
+        <input
+          id="projectName"
+          required
+          maxlength="100"
+        >
+      </label>
+
+      <label>
+        Description
+
+        <textarea
+          id="projectDescription"
+          maxlength="2000"
+        ></textarea>
+      </label>
+
+      <label>
+        Type
+
+        <select id="projectType">
+          <option value="content">
+            Content / Creator
+          </option>
+
+          <option value="software">
+            Software
+          </option>
+
+          <option value="game">
+            Game Development
+          </option>
+
+          <option value="brand">
+            Brand
+          </option>
+
+          <option value="website">
+            Website / SaaS
+          </option>
+
+          <option value="custom">
+            Custom
+          </option>
+        </select>
+      </label>
+
+      <label>
+        Accent
+
+        <input
+          id="projectColour"
+          type="color"
+          value="#6C63FF"
+        >
+      </label>
+
+      <button
+        class="primary-button full-button"
+        type="submit"
+      >
+        Create Project
+      </button>
+
+    </form>
+
+  </dialog>
+
+
+  <!-- =========================
+       IDEA DIALOG
+  ========================== -->
+
+  <dialog id="ideaDialog">
+
+    <form id="ideaForm">
+
+      <div class="dialog-header">
+        <h2>Capture Idea</h2>
+
+        <button
+          id="closeIdeaDialog"
+          class="icon-button"
+          type="button"
+        >
+          ×
+        </button>
+      </div>
+
+      <label>
+        Idea
+
+        <input
+          id="ideaTitle"
+          required
+          maxlength="200"
+        >
+      </label>
+
+      <label>
+        Workspace
+
+        <select id="ideaProject">
+          <option value="">
+            No workspace
+          </option>
+        </select>
+      </label>
+
+      <label>
+        Notes
+
+        <textarea
+          id="ideaDescription"
+          maxlength="5000"
+        ></textarea>
+      </label>
+
+      <button
+        class="primary-button full-button"
+        type="submit"
+      >
+        Save Idea
+      </button>
+
+    </form>
+
+  </dialog>
+
+
+  <!-- =========================
+       ACCOUNT DIALOG
+  ========================== -->
+
+  <dialog id="accountDialog">
+
+    <form id="accountForm">
+
+      <div class="dialog-header">
+        <h2>Add Social Account</h2>
+
+        <button
+          id="closeAccountDialog"
+          class="icon-button"
+          type="button"
+        >
+          ×
+        </button>
+      </div>
+
+      <label>
+        Workspace
+
+        <select
+          id="accountProject"
+          required
+        ></select>
+      </label>
+
+      <label>
+        Platform
+
+        <select
+          id="accountPlatform"
+          required
+        >
+          <option value="tiktok">
+            TikTok
+          </option>
+
+          <option value="youtube">
+            YouTube
+          </option>
+
+          <option value="instagram">
+            Instagram
+          </option>
+        </select>
+      </label>
+
+      <label>
+        Account Name
+
+        <input
+          id="accountName"
+          required
+          maxlength="200"
+          placeholder="Kirk OSRS"
+        >
+      </label>
+
+      <label>
+        Handle
+
+        <input
+          id="accountHandle"
+          maxlength="200"
+          placeholder="@handle"
+        >
+      </label>
+
+      <button
+        class="primary-button full-button"
+        type="submit"
+      >
+        Add Account
+      </button>
+
+    </form>
+
+  </dialog>
+
+
+  <!-- =========================
+       TOAST
+  ========================== -->
+
+  <div
+    id="toast"
+    class="toast"
+    hidden
+  ></div>
+
+
+  <script src="./js/config.js"></script>
+  <script src="./js/api.js"></script>
+  <script src="./js/app.js"></script>
+
+</body>
+</html>
