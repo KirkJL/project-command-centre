@@ -2,40 +2,65 @@
 
 window.ProjectHubAPI = (() => {
 
-  const API_BASE_URL =
-    window.APP_CONFIG.API_BASE_URL;
+  const baseUrl =
+    window.APP_CONFIG.API_BASE_URL
+      .replace(/\/+$/, "");
+
+  let csrfToken = null;
 
   async function request(
     path,
     options = {}
   ) {
+
+    const method =
+      (
+        options.method ||
+        "GET"
+      ).toUpperCase();
+
+    const headers = {
+      Accept: "application/json",
+      ...(options.headers || {})
+    };
+
+    if (
+      options.body !== undefined
+    ) {
+      headers["Content-Type"] =
+        "application/json";
+    }
+
+    if (
+      csrfToken &&
+      ![
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ].includes(method) &&
+      path !== "/api/auth/login"
+    ) {
+      headers["X-CSRF-Token"] =
+        csrfToken;
+    }
+
     const response =
       await fetch(
-        `${API_BASE_URL}${path}`,
+        `${baseUrl}${path}`,
         {
-          method:
-            options.method || "GET",
-
-          credentials:
-            "include",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            ...(options.headers || {})
-          },
-
+          method,
+          credentials: "include",
+          headers,
           body:
-            options.body
-              ? JSON.stringify(
+            options.body === undefined
+              ? undefined
+              : JSON.stringify(
                   options.body
                 )
-              : undefined
         }
       );
 
-    let data = null;
+    let data;
 
     try {
       data =
@@ -48,18 +73,34 @@ window.ProjectHubAPI = (() => {
       };
     }
 
+    if (data.csrfToken) {
+      csrfToken =
+        data.csrfToken;
+    }
+
+    if (
+      response.status === 401 &&
+      path !== "/api/auth/login"
+    ) {
+      window.location.href =
+        "./login.html";
+
+      throw new Error(
+        "UNAUTHENTICATED"
+      );
+    }
+
     if (!response.ok) {
       const error =
         new Error(
           data.error ||
-          "REQUEST_FAILED"
+          `HTTP_${response.status}`
         );
 
       error.status =
         response.status;
 
-      error.data =
-        data;
+      error.data = data;
 
       throw error;
     }
@@ -67,74 +108,154 @@ window.ProjectHubAPI = (() => {
     return data;
   }
 
+  return {
 
-  function login(
-    username,
-    password
-  ) {
-    return request(
-      "/api/auth/login",
-      {
-        method: "POST",
-
-        body: {
-          username,
-          password
+    async login(
+      username,
+      password
+    ) {
+      return request(
+        "/api/auth/login",
+        {
+          method: "POST",
+          body: {
+            username,
+            password
+          }
         }
+      );
+    },
+
+    async logout() {
+      return request(
+        "/api/auth/logout",
+        {
+          method: "POST"
+        }
+      );
+    },
+
+    async me() {
+      return request(
+        "/api/auth/me"
+      );
+    },
+
+    async dashboard() {
+      return request(
+        "/api/dashboard"
+      );
+    },
+
+    async projects() {
+      return request(
+        "/api/projects"
+      );
+    },
+
+    async createProject(data) {
+      return request(
+        "/api/projects",
+        {
+          method: "POST",
+          body: data
+        }
+      );
+    },
+
+    async content(filters = {}) {
+      const params =
+        new URLSearchParams();
+
+      if (filters.projectId) {
+        params.set(
+          "projectId",
+          filters.projectId
+        );
       }
-    );
-  }
 
-
-  function logout() {
-    return request(
-      "/api/auth/logout",
-      {
-        method: "POST"
+      if (filters.status) {
+        params.set(
+          "status",
+          filters.status
+        );
       }
-    );
-  }
 
+      const query =
+        params.toString();
 
-  function me() {
-    return request(
-      "/api/auth/me"
-    );
-  }
+      return request(
+        `/api/content${
+          query
+            ? `?${query}`
+            : ""
+        }`
+      );
+    },
 
+    async createContent(data) {
+      return request(
+        "/api/content",
+        {
+          method: "POST",
+          body: data
+        }
+      );
+    },
 
-  function dashboard() {
-    return request(
-      "/api/dashboard"
-    );
-  }
+    async updateContentStatus(
+      id,
+      status
+    ) {
+      return request(
+        `/api/content/${id}/status`,
+        {
+          method: "PATCH",
+          body: {
+            status
+          }
+        }
+      );
+    },
 
+    async ideas() {
+      return request(
+        "/api/ideas"
+      );
+    },
 
-  function projects() {
-    return request(
-      "/api/projects"
-    );
-  }
+    async createIdea(data) {
+      return request(
+        "/api/ideas",
+        {
+          method: "POST",
+          body: data
+        }
+      );
+    },
 
+    async accounts() {
+      return request(
+        "/api/accounts"
+      );
+    },
 
-  function createProject(project) {
-    return request(
-      "/api/projects",
-      {
-        method: "POST",
-        body: project
-      }
-    );
-  }
+    async createAccount(data) {
+      return request(
+        "/api/accounts",
+        {
+          method: "POST",
+          body: data
+        }
+      );
+    },
 
+    async calendar() {
+      return request(
+        "/api/calendar"
+      );
+    }
 
-  return Object.freeze({
-    login,
-    logout,
-    me,
-    dashboard,
-    projects,
-    createProject
-  });
+  };
 
 })();
