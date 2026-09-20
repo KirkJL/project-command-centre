@@ -155,13 +155,21 @@
         window.location.href =
           "./index.html";
 
-      } catch {
+      } catch (error) {
 
-        errorElement.textContent =
-          "Incorrect username or password.";
+  console.error(
+    "LOGIN FAILED:",
+    error
+  );
 
-        errorElement.hidden = false;
+  errorElement.textContent =
+    error?.data?.error ||
+    error?.message ||
+    "Login failed.";
 
+  errorElement.hidden = false;
+
+      
       } finally {
 
         button.disabled = false;
