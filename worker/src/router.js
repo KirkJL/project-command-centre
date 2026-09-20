@@ -53,6 +53,19 @@ import {
   finishYouTubeOAuth
 } from "./youtube.js";
 
+import {
+  getPublications,
+  getPublishingData,
+  createPublications,
+  updatePublication,
+  cancelPublication
+} from "./publications.js";
+
+
+/* =========================================================
+   ROUTER
+========================================================= */
+
 export async function handleRequest(
   request,
   env,
@@ -67,6 +80,11 @@ export async function handleRequest(
     request.headers.get(
       "Origin"
     );
+
+
+  /* =======================================================
+     ORIGIN PROTECTION
+  ======================================================= */
 
   if (
     origin &&
@@ -85,6 +103,11 @@ export async function handleRequest(
     );
   }
 
+
+  /* =======================================================
+     CORS PREFLIGHT
+  ======================================================= */
+
   if (
     request.method ===
     "OPTIONS"
@@ -93,6 +116,11 @@ export async function handleRequest(
       request
     );
   }
+
+
+  /* =======================================================
+     SERVICE ROOT
+  ======================================================= */
 
   if (
     url.pathname === "/" &&
@@ -103,12 +131,17 @@ export async function handleRequest(
         ok: true,
         service:
           "Project Hub API",
-        version: "3A"
+        version: "3C"
       },
       200,
       request
     );
   }
+
+
+  /* =======================================================
+     HEALTH
+  ======================================================= */
 
   if (
     url.pathname ===
@@ -119,12 +152,17 @@ export async function handleRequest(
       {
         ok: true,
         status: "healthy",
-        version: "3A"
+        version: "3C"
       },
       200,
       request
     );
   }
+
+
+  /* =======================================================
+     AUTH
+  ======================================================= */
 
   if (
     url.pathname ===
@@ -137,6 +175,7 @@ export async function handleRequest(
     );
   }
 
+
   if (
     url.pathname ===
       "/api/auth/logout" &&
@@ -147,6 +186,7 @@ export async function handleRequest(
       env
     );
   }
+
 
   if (
     url.pathname ===
@@ -159,6 +199,11 @@ export async function handleRequest(
     );
   }
 
+
+  /* =======================================================
+     DASHBOARD
+  ======================================================= */
+
   if (
     url.pathname ===
       "/api/dashboard" &&
@@ -169,6 +214,11 @@ export async function handleRequest(
       env
     );
   }
+
+
+  /* =======================================================
+     PROJECTS
+  ======================================================= */
 
   if (
     url.pathname ===
@@ -193,6 +243,11 @@ export async function handleRequest(
     }
   }
 
+
+  /* =======================================================
+     CONTENT
+  ======================================================= */
+
   if (
     url.pathname ===
       "/api/content"
@@ -216,6 +271,13 @@ export async function handleRequest(
     }
   }
 
+
+  /*
+    Content status:
+
+    PATCH /api/content/:id/status
+  */
+
   const contentStatusMatch =
     url.pathname.match(
       /^\/api\/content\/(\d+)\/status$/
@@ -233,6 +295,107 @@ export async function handleRequest(
       )
     );
   }
+
+
+  /*
+    Publishing composer data:
+
+    GET /api/content/:id/publishing
+  */
+
+  const publishingDataMatch =
+    url.pathname.match(
+      /^\/api\/content\/(\d+)\/publishing$/
+    );
+
+  if (
+    publishingDataMatch &&
+    request.method === "GET"
+  ) {
+    return getPublishingData(
+      request,
+      env,
+      Number(
+        publishingDataMatch[1]
+      )
+    );
+  }
+
+
+  /* =======================================================
+     PUBLICATIONS
+  ======================================================= */
+
+  /*
+    GET  /api/publications
+    POST /api/publications
+  */
+
+  if (
+    url.pathname ===
+      "/api/publications"
+  ) {
+    if (
+      request.method === "GET"
+    ) {
+      return getPublications(
+        request,
+        env
+      );
+    }
+
+    if (
+      request.method === "POST"
+    ) {
+      return createPublications(
+        request,
+        env
+      );
+    }
+  }
+
+
+  /*
+    PATCH  /api/publications/:id
+    DELETE /api/publications/:id
+  */
+
+  const publicationMatch =
+    url.pathname.match(
+      /^\/api\/publications\/(\d+)$/
+    );
+
+  if (publicationMatch) {
+    const publicationId =
+      Number(
+        publicationMatch[1]
+      );
+
+    if (
+      request.method === "PATCH"
+    ) {
+      return updatePublication(
+        request,
+        env,
+        publicationId
+      );
+    }
+
+    if (
+      request.method === "DELETE"
+    ) {
+      return cancelPublication(
+        request,
+        env,
+        publicationId
+      );
+    }
+  }
+
+
+  /* =======================================================
+     IDEAS
+  ======================================================= */
 
   if (
     url.pathname ===
@@ -257,6 +420,11 @@ export async function handleRequest(
     }
   }
 
+
+  /* =======================================================
+     SOCIAL ACCOUNTS
+  ======================================================= */
+
   if (
     url.pathname ===
       "/api/accounts"
@@ -280,6 +448,13 @@ export async function handleRequest(
     }
   }
 
+
+  /*
+    Disconnect account:
+
+    POST /api/accounts/:id/disconnect
+  */
+
   const disconnectMatch =
     url.pathname.match(
       /^\/api\/accounts\/(\d+)\/disconnect$/
@@ -297,6 +472,13 @@ export async function handleRequest(
       )
     );
   }
+
+
+  /*
+    TikTok creator info:
+
+    GET /api/accounts/:id/creator-info
+  */
 
   const creatorInfoMatch =
     url.pathname.match(
@@ -316,6 +498,11 @@ export async function handleRequest(
     );
   }
 
+
+  /* =======================================================
+     CALENDAR
+  ======================================================= */
+
   if (
     url.pathname ===
       "/api/calendar" &&
@@ -326,6 +513,11 @@ export async function handleRequest(
       env
     );
   }
+
+
+  /* =======================================================
+     TIKTOK OAUTH
+  ======================================================= */
 
   if (
     url.pathname ===
@@ -338,6 +530,7 @@ export async function handleRequest(
     );
   }
 
+
   if (
     url.pathname ===
       "/api/oauth/tiktok/callback" &&
@@ -348,6 +541,11 @@ export async function handleRequest(
       env
     );
   }
+
+
+  /* =======================================================
+     YOUTUBE OAUTH
+  ======================================================= */
 
   if (
     url.pathname ===
@@ -360,6 +558,7 @@ export async function handleRequest(
     );
   }
 
+
   if (
     url.pathname ===
       "/api/oauth/youtube/callback" &&
@@ -371,6 +570,11 @@ export async function handleRequest(
     );
   }
 
+
+  /* =======================================================
+     NOT FOUND
+  ======================================================= */
+
   return json(
     {
       ok: false,
@@ -380,6 +584,11 @@ export async function handleRequest(
     request
   );
 }
+
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
 
 async function dashboard(
   request,
@@ -406,6 +615,14 @@ async function dashboard(
   const user =
     session.user;
 
+
+  /*
+    These are intentionally independent queries.
+
+    Promise.all allows D1 to perform the reads without
+    serialising every dashboard query.
+  */
+
   const [
     projects,
     tasks,
@@ -414,6 +631,11 @@ async function dashboard(
     ideas
   ] =
     await Promise.all([
+
+      /* ---------------------------------------------------
+         ACTIVE PROJECTS
+      --------------------------------------------------- */
+
       env.DB
         .prepare(`
           SELECT
@@ -423,15 +645,26 @@ async function dashboard(
             project_type,
             status,
             accent_colour
+
           FROM projects
+
           WHERE user_id = ?
           AND status != 'archived'
+
           ORDER BY
             updated_at DESC
+
           LIMIT 8
         `)
-        .bind(user.id)
+        .bind(
+          user.id
+        )
         .all(),
+
+
+      /* ---------------------------------------------------
+         TASKS
+      --------------------------------------------------- */
 
       env.DB
         .prepare(`
@@ -441,64 +674,131 @@ async function dashboard(
             tasks.status,
             tasks.priority,
             tasks.due_at,
+
             projects.name
               AS project_name
+
           FROM tasks
+
           LEFT JOIN projects
             ON projects.id =
                tasks.project_id
+
           WHERE tasks.user_id = ?
+
           AND tasks.status
             NOT IN (
               'done',
               'cancelled'
             )
+
           ORDER BY
+
             CASE tasks.priority
               WHEN 'critical'
                 THEN 1
+
               WHEN 'high'
                 THEN 2
+
               WHEN 'normal'
                 THEN 3
+
               ELSE 4
             END,
+
             tasks.due_at ASC
+
           LIMIT 10
         `)
-        .bind(user.id)
+        .bind(
+          user.id
+        )
         .all(),
+
+
+      /* ---------------------------------------------------
+         PUBLISHING QUEUE
+
+         Build 3C now reads publication_jobs rather than
+         the old publications placeholder table.
+      --------------------------------------------------- */
 
       env.DB
         .prepare(`
           SELECT
-            publications.id,
-            publications.platform,
-            publications.publish_state,
-            publications.scheduled_at,
+            publication_jobs.id,
+            publication_jobs.platform,
+            publication_jobs.publish_state,
+            publication_jobs.scheduled_at,
+            publication_jobs.attempt_count,
+            publication_jobs.last_error,
+
+            content.id
+              AS content_id,
+
             content.title,
-            social_accounts.account_name
-          FROM publications
+
+            projects.id
+              AS project_id,
+
+            projects.name
+              AS project_name,
+
+            social_accounts.id
+              AS social_account_id,
+
+            social_accounts.account_name,
+            social_accounts.account_handle
+
+          FROM publication_jobs
+
           INNER JOIN content
             ON content.id =
-               publications.content_id
+               publication_jobs.content_id
+
+          INNER JOIN projects
+            ON projects.id =
+               publication_jobs.project_id
+
           INNER JOIN social_accounts
             ON social_accounts.id =
-               publications.social_account_id
-          WHERE content.user_id = ?
-          AND publications.publish_state
+               publication_jobs.social_account_id
+
+          WHERE publication_jobs.user_id = ?
+
+          AND publication_jobs.publish_state
             IN (
               'ready',
               'queued',
               'processing',
               'retrying'
             )
+
           ORDER BY
-            publications.scheduled_at ASC
+
+            CASE
+              WHEN publication_jobs.scheduled_at
+                IS NULL
+              THEN 1
+              ELSE 0
+            END,
+
+            publication_jobs.scheduled_at ASC,
+
+            publication_jobs.created_at ASC
+
           LIMIT 10
         `)
-        .bind(user.id)
+        .bind(
+          user.id
+        )
         .all(),
+
+
+      /* ---------------------------------------------------
+         RECENT CONTENT
+      --------------------------------------------------- */
 
       env.DB
         .prepare(`
@@ -509,47 +809,75 @@ async function dashboard(
             content.content_type,
             content.status,
             content.updated_at,
+
             projects.name
               AS project_name
+
           FROM content
+
           INNER JOIN projects
             ON projects.id =
                content.project_id
+
           WHERE content.user_id = ?
+
           AND content.status
             != 'archived'
+
           ORDER BY
             content.updated_at DESC
+
           LIMIT 8
         `)
-        .bind(user.id)
+        .bind(
+          user.id
+        )
         .all(),
+
+
+      /* ---------------------------------------------------
+         IDEA INBOX COUNT
+      --------------------------------------------------- */
 
       env.DB
         .prepare(`
-          SELECT COUNT(*)
-            AS total
+          SELECT
+            COUNT(*) AS total
+
           FROM ideas
+
           WHERE user_id = ?
           AND status = 'inbox'
         `)
-        .bind(user.id)
+        .bind(
+          user.id
+        )
         .first()
     ]);
+
+
+  /* =======================================================
+     RESPONSE
+  ======================================================= */
 
   return json(
     {
       ok: true,
+
       user,
+
       projects:
         projects.results || [],
+
       tasks:
         tasks.results || [],
+
       publications:
         publications.results || [],
+
       recentContent:
-        recentContent.results ||
-        [],
+        recentContent.results || [],
+
       ideaCount:
         Number(
           ideas?.total || 0
@@ -558,4 +886,4 @@ async function dashboard(
     200,
     request
   );
-      }
+}
