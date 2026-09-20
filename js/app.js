@@ -5,74 +5,98 @@
   const API =
     window.ProjectHubAPI;
 
+
   const state = {
+
     user: null,
+
     projects: [],
+
     activeProjectId: "",
+
     route: "today"
+
   };
+
 
   const page =
     document.getElementById(
       "page"
     );
 
+
   const projectSwitcher =
     document.getElementById(
       "projectSwitcher"
     );
+
 
   const userName =
     document.getElementById(
       "userName"
     );
 
+
   const userInitial =
     document.getElementById(
       "userInitial"
     );
+
 
   const mobileSection =
     document.getElementById(
       "mobileSection"
     );
 
+
   const createSheet =
     document.getElementById(
       "createSheet"
     );
+
 
   const moreSheet =
     document.getElementById(
       "moreSheet"
     );
 
+
   const backdrop =
     document.getElementById(
       "backdrop"
     );
+
 
   const toast =
     document.getElementById(
       "toast"
     );
 
+
   const projectDialog =
     document.getElementById(
       "projectDialog"
     );
+
 
   const ideaDialog =
     document.getElementById(
       "ideaDialog"
     );
 
+
   const accountDialog =
     document.getElementById(
       "accountDialog"
     );
 
+
   init();
+
+
+  /* ===================================================
+     INIT
+     =================================================== */
 
   async function init() {
 
@@ -80,16 +104,21 @@
 
     showLoading();
 
+
     try {
 
       const me =
         await API.me();
 
+
       state.user =
         me.user;
 
+
       userName.textContent =
-        state.user.displayName;
+        state.user.displayName ||
+        state.user.username;
+
 
       userInitial.textContent =
         (
@@ -100,19 +129,54 @@
           .charAt(0)
           .toUpperCase();
 
+
       await loadProjects();
 
-      await navigate("today");
+
+      const oauthProvider =
+        new URL(
+          window.location.href
+        )
+          .searchParams
+          .get("oauth");
+
+
+      const hashRoute =
+        window.location.hash
+          .replace("#", "");
+
+
+      if (
+        oauthProvider ||
+        hashRoute === "accounts"
+      ) {
+
+        await navigate(
+          "accounts"
+        );
+
+      } else {
+
+        await navigate(
+          "today"
+        );
+
+      }
 
     } catch (error) {
+
+      console.error(error);
+
 
       if (
         error.message !==
         "UNAUTHENTICATED"
       ) {
+
         showFatal(
           "Could not load Project Hub."
         );
+
       }
 
     }
@@ -120,24 +184,32 @@
   }
 
 
+  /* ===================================================
+     GLOBAL EVENTS
+     =================================================== */
+
   function bindGlobalEvents() {
 
     document
       .querySelectorAll(
         "[data-route]"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        button.addEventListener(
-          "click",
-          () => {
-            navigate(
-              button.dataset.route
-            );
-          }
-        );
+          button.addEventListener(
+            "click",
+            () => {
 
-      });
+              navigate(
+                button.dataset.route
+              );
+
+            }
+          );
+
+        }
+      );
 
 
     document
@@ -166,10 +238,13 @@
       )
       .addEventListener(
         "click",
-        () =>
+        () => {
+
           openSheet(
             moreSheet
-          )
+          );
+
+        }
       );
 
 
@@ -177,14 +252,16 @@
       .querySelectorAll(
         "[data-close-sheet]"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        button.addEventListener(
-          "click",
-          closeSheets
-        );
+          button.addEventListener(
+            "click",
+            closeSheets
+          );
 
-      });
+        }
+      );
 
 
     backdrop.addEventListener(
@@ -197,23 +274,25 @@
       .querySelectorAll(
         "[data-more-route]"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        button.addEventListener(
-          "click",
-          () => {
+          button.addEventListener(
+            "click",
+            () => {
 
-            closeSheets();
+              closeSheets();
 
-            navigate(
-              button.dataset
-                .moreRoute
-            );
+              navigate(
+                button.dataset
+                  .moreRoute
+              );
 
-          }
-        );
+            }
+          );
 
-      });
+        }
+      );
 
 
     document
@@ -243,6 +322,7 @@
 
           state.activeProjectId =
             projectSwitcher.value;
+
 
           await navigate(
             state.route,
@@ -299,8 +379,11 @@
       )
       .addEventListener(
         "click",
-        () =>
-          projectDialog.close()
+        () => {
+
+          projectDialog.close();
+
+        }
       );
 
 
@@ -310,8 +393,11 @@
       )
       .addEventListener(
         "click",
-        () =>
-          ideaDialog.close()
+        () => {
+
+          ideaDialog.close();
+
+        }
       );
 
 
@@ -321,60 +407,98 @@
       )
       .addEventListener(
         "click",
-        () =>
-          accountDialog.close()
+        () => {
+
+          accountDialog.close();
+
+        }
       );
 
   }
 
+
+  /* ===================================================
+     NAVIGATION
+     =================================================== */
 
   async function navigate(
     route,
     updateNav = true
   ) {
 
-    state.route = route;
+    state.route =
+      route;
+
 
     closeSheets();
 
+
     if (updateNav) {
-      updateNavigation(route);
+
+      updateNavigation(
+        route
+      );
+
     }
 
+
     mobileSection.textContent =
-      routeLabel(route);
+      routeLabel(
+        route
+      );
+
 
     showLoading();
+
 
     try {
 
       switch (route) {
 
         case "today":
+
           await renderToday();
+
           break;
+
 
         case "content":
+
           await renderContent();
+
           break;
+
 
         case "calendar":
+
           await renderCalendar();
+
           break;
+
 
         case "projects":
+
           await renderProjects();
+
           break;
+
 
         case "ideas":
+
           await renderIdeas();
+
           break;
+
 
         case "accounts":
+
           await renderAccounts();
+
           break;
 
+
         default:
+
           await renderToday();
 
       }
@@ -383,13 +507,17 @@
 
       console.error(error);
 
+
       page.innerHTML = "";
+
 
       page.appendChild(
         emptyState(
           "!",
           "Something went wrong",
-          readableError(error)
+          readableError(
+            error
+          )
         )
       );
 
@@ -398,51 +526,70 @@
   }
 
 
-  function updateNavigation(route) {
+  function updateNavigation(
+    route
+  ) {
 
     document
       .querySelectorAll(
         "[data-route]"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        button.classList.toggle(
-          "active",
-          button.dataset.route ===
-            route
-        );
+          button.classList.toggle(
+            "active",
 
-      });
+            button.dataset.route ===
+              route
+          );
+
+        }
+      );
 
 
     document
       .querySelectorAll(
         ".mobile-nav-button"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        if (!button.dataset.route) {
-          return;
+          if (
+            !button.dataset.route
+          ) {
+
+            return;
+
+          }
+
+
+          button.classList.toggle(
+            "active",
+
+            button.dataset.route ===
+              route
+          );
+
         }
-
-        button.classList.toggle(
-          "active",
-          button.dataset.route ===
-            route
-        );
-
-      });
+      );
 
   }
 
+
+  /* ===================================================
+     PROJECT DATA
+     =================================================== */
 
   async function loadProjects() {
 
     const response =
       await API.projects();
 
+
     state.projects =
       response.projects;
+
 
     renderProjectSelectors();
 
@@ -451,7 +598,9 @@
 
   function renderProjectSelectors() {
 
-    projectSwitcher.innerHTML = "";
+    projectSwitcher.innerHTML =
+      "";
+
 
     addOption(
       projectSwitcher,
@@ -465,10 +614,12 @@
         "contentProject"
       );
 
+
     const ideaProject =
       document.getElementById(
         "ideaProject"
       );
+
 
     const accountProject =
       document.getElementById(
@@ -476,9 +627,16 @@
       );
 
 
-    contentProject.innerHTML = "";
-    ideaProject.innerHTML = "";
-    accountProject.innerHTML = "";
+    contentProject.innerHTML =
+      "";
+
+
+    ideaProject.innerHTML =
+      "";
+
+
+    accountProject.innerHTML =
+      "";
 
 
     addOption(
@@ -495,25 +653,36 @@
 
       addOption(
         projectSwitcher,
-        String(project.id),
+        String(
+          project.id
+        ),
         project.name
       );
+
 
       addOption(
         contentProject,
-        String(project.id),
+        String(
+          project.id
+        ),
         project.name
       );
+
 
       addOption(
         ideaProject,
-        String(project.id),
+        String(
+          project.id
+        ),
         project.name
       );
 
+
       addOption(
         accountProject,
-        String(project.id),
+        String(
+          project.id
+        ),
         project.name
       );
 
@@ -526,10 +695,15 @@
   }
 
 
+  /* ===================================================
+     TODAY
+     =================================================== */
+
   async function renderToday() {
 
     const data =
       await API.dashboard();
+
 
     const projects =
       filterByProject(
@@ -537,17 +711,21 @@
         "id"
       );
 
+
     const content =
       filterByProjectName(
         data.recentContent
       );
 
+
     page.innerHTML = "";
+
 
     page.appendChild(
       heading(
         "COMMAND CENTRE",
         greeting(),
+
         activeProjectName() ===
           "All projects"
           ? "Everything that needs your attention."
@@ -570,9 +748,11 @@
       )
     );
 
+
     grid.appendChild(
       metricCard(
         "Content in motion",
+
         content.filter(
           item =>
             ![
@@ -584,6 +764,7 @@
         ).length
       )
     );
+
 
     grid.appendChild(
       metricCard(
@@ -597,16 +778,23 @@
       dashboardListCard(
         "Recent content",
         content,
+
         item => ({
-          title: item.title,
+          title:
+            item.title,
+
           subtitle:
             `${item.project_name} · ` +
             titleCase(
               item.content_type
             ),
-          status: item.status
+
+          status:
+            item.status
         }),
+
         "No content yet.",
+
         "span-8"
       )
     );
@@ -616,18 +804,24 @@
       dashboardListCard(
         "Publishing queue",
         data.publications,
+
         item => ({
-          title: item.title,
+          title:
+            item.title,
+
           subtitle:
             `${titleCase(
               item.platform
             )} · ${
               item.account_name
             }`,
+
           status:
             item.publish_state
         }),
+
         "Nothing queued yet.",
+
         "span-4"
       )
     );
@@ -637,14 +831,21 @@
       dashboardListCard(
         "Tasks",
         data.tasks,
+
         item => ({
-          title: item.title,
+          title:
+            item.title,
+
           subtitle:
             item.project_name ||
             "General",
-          status: item.priority
+
+          status:
+            item.priority
         }),
+
         "No outstanding tasks.",
+
         "span-6"
       )
     );
@@ -654,34 +855,50 @@
       dashboardListCard(
         "Projects",
         projects,
+
         item => ({
-          title: item.name,
+          title:
+            item.name,
+
           subtitle:
             titleCase(
               item.project_type
             ),
-          status: item.status
+
+          status:
+            item.status
         }),
+
         "Create your first project.",
+
         "span-6"
       )
     );
 
 
-    page.appendChild(grid);
+    page.appendChild(
+      grid
+    );
 
   }
 
+
+  /* ===================================================
+     PROJECTS
+     =================================================== */
 
   async function renderProjects() {
 
     const response =
       await API.projects();
 
+
     state.projects =
       response.projects;
 
+
     renderProjectSelectors();
+
 
     const projects =
       filterByProject(
@@ -692,29 +909,42 @@
 
     page.innerHTML = "";
 
+
     page.appendChild(
       heading(
         "WORKSPACES",
         "Projects",
+
         "Keep every brand, build and content machine separated.",
+
         "New project",
-        () =>
-          projectDialog.showModal()
+
+        () => {
+
+          projectDialog
+            .showModal();
+
+        }
       )
     );
 
 
-    if (!projects.length) {
+    if (
+      !projects.length
+    ) {
 
       page.appendChild(
         emptyState(
           "◇",
           "No projects",
+
           "Create a workspace for a brand, game, website or content channel."
         )
       );
 
+
       return;
+
     }
 
 
@@ -726,7 +956,8 @@
 
 
     for (
-      const project of projects
+      const project of
+        projects
     ) {
 
       const card =
@@ -735,10 +966,12 @@
           "project-card"
         );
 
+
       card.style.setProperty(
         "--project-accent",
+
         project.accent_colour ||
-          "#8b5cf6"
+        "#8b5cf6"
       );
 
 
@@ -748,15 +981,22 @@
           "project-accent"
         );
 
+
       const title =
-        document.createElement("h3");
+        document.createElement(
+          "h3"
+        );
+
 
       title.textContent =
         project.name;
 
 
       const description =
-        document.createElement("p");
+        document.createElement(
+          "p"
+        );
+
 
       description.textContent =
         project.description ||
@@ -770,6 +1010,7 @@
           "div",
           "project-meta"
         );
+
 
       meta.textContent =
         `${project.content_count} content · ` +
@@ -786,15 +1027,24 @@
         meta
       );
 
-      grid.appendChild(card);
+
+      grid.appendChild(
+        card
+      );
 
     }
 
 
-    page.appendChild(grid);
+    page.appendChild(
+      grid
+    );
 
   }
 
+
+  /* ===================================================
+     CONTENT
+     =================================================== */
 
   async function renderContent() {
 
@@ -804,34 +1054,44 @@
           state.activeProjectId
       });
 
+
     const items =
       response.content;
 
 
     page.innerHTML = "";
 
+
     page.appendChild(
       heading(
         "CONTENT ENGINE",
         "Pipeline",
+
         "Move ideas from concept to ready-to-publish.",
+
         "Create",
+
         openCreateSheet
       )
     );
 
 
-    if (!items.length) {
+    if (
+      !items.length
+    ) {
 
       page.appendChild(
         emptyState(
           "▤",
           "Nothing in the pipeline",
+
           "Create your first piece of content and start moving it through production."
         )
       );
 
+
       return;
+
     }
 
 
@@ -852,7 +1112,8 @@
 
 
     for (
-      const stage of stages
+      const stage of
+        stages
     ) {
 
       const column =
@@ -861,10 +1122,12 @@
           "pipeline-column"
         );
 
+
       const stageItems =
         items.filter(
           item =>
-            item.status === stage
+            item.status ===
+            stage
         );
 
 
@@ -876,10 +1139,15 @@
 
 
       const label =
-        document.createElement("span");
+        document.createElement(
+          "span"
+        );
+
 
       label.textContent =
-        titleCase(stage);
+        titleCase(
+          stage
+        );
 
 
       const count =
@@ -887,6 +1155,7 @@
           "span",
           "pipeline-count"
         );
+
 
       count.textContent =
         stageItems.length;
@@ -897,17 +1166,21 @@
         count
       );
 
+
       column.appendChild(
         columnHeading
       );
 
 
       for (
-        const item of stageItems
+        const item of
+          stageItems
       ) {
 
         column.appendChild(
-          contentCard(item)
+          contentCard(
+            item
+          )
         );
 
       }
@@ -920,12 +1193,16 @@
     }
 
 
-    page.appendChild(pipeline);
+    page.appendChild(
+      pipeline
+    );
 
   }
 
 
-  function contentCard(item) {
+  function contentCard(
+    item
+  ) {
 
     const card =
       el(
@@ -939,6 +1216,7 @@
         "strong"
       );
 
+
     title.textContent =
       item.title;
 
@@ -947,6 +1225,7 @@
       document.createElement(
         "small"
       );
+
 
     meta.textContent =
       `${item.project_name} · ` +
@@ -980,7 +1259,9 @@
       addOption(
         select,
         stage,
-        titleCase(stage)
+        titleCase(
+          stage
+        )
       );
 
     }
@@ -997,6 +1278,7 @@
         const previous =
           item.status;
 
+
         try {
 
           await API
@@ -1005,9 +1287,11 @@
               select.value
             );
 
+
           showToast(
             "Content stage updated."
           );
+
 
           await navigate(
             "content",
@@ -1019,8 +1303,11 @@
           select.value =
             previous;
 
+
           showToast(
-            readableError(error),
+            readableError(
+              error
+            ),
             true
           );
 
@@ -1042,10 +1329,15 @@
   }
 
 
+  /* ===================================================
+     IDEAS
+     =================================================== */
+
   async function renderIdeas() {
 
     const response =
       await API.ideas();
+
 
     let ideas =
       response.ideas;
@@ -1071,29 +1363,42 @@
 
     page.innerHTML = "";
 
+
     page.appendChild(
       heading(
         "CAPTURE FIRST",
         "Ideas",
+
         "Get it out of your head before it disappears.",
+
         "Capture idea",
-        () =>
-          ideaDialog.showModal()
+
+        () => {
+
+          ideaDialog
+            .showModal();
+
+        }
       )
     );
 
 
-    if (!ideas.length) {
+    if (
+      !ideas.length
+    ) {
 
       page.appendChild(
         emptyState(
           "✦",
           "Idea inbox is empty",
-          "Good. Or worrying. Capture something before you forget it."
+
+          "Capture an idea the moment you have it and decide what to do with it later."
         )
       );
 
+
       return;
+
     }
 
 
@@ -1105,7 +1410,8 @@
 
 
     for (
-      const idea of ideas
+      const idea of
+        ideas
     ) {
 
       const card =
@@ -1120,6 +1426,7 @@
           "h3"
         );
 
+
       title.textContent =
         idea.title;
 
@@ -1128,6 +1435,7 @@
         document.createElement(
           "p"
         );
+
 
       description.textContent =
         idea.description ||
@@ -1139,6 +1447,7 @@
           "div",
           "project-meta"
         );
+
 
       meta.textContent =
         `${idea.project_name ||
@@ -1154,20 +1463,30 @@
         meta
       );
 
-      grid.appendChild(card);
+
+      grid.appendChild(
+        card
+      );
 
     }
 
 
-    page.appendChild(grid);
+    page.appendChild(
+      grid
+    );
 
   }
 
+
+  /* ===================================================
+     ACCOUNTS
+     =================================================== */
 
   async function renderAccounts() {
 
     const response =
       await API.accounts();
+
 
     let accounts =
       response.accounts;
@@ -1193,29 +1512,308 @@
 
     page.innerHTML = "";
 
+
     page.appendChild(
       heading(
         "SOCIAL CONTROL",
         "Accounts",
-        "One place for every brand account. OAuth connections arrive in Build 3.",
-        "Add account",
-        () =>
-          accountDialog.showModal()
+
+        "Connect your channels once. Project Hub handles the account switching."
       )
     );
 
 
-    if (!accounts.length) {
+    /* ---------------------------
+       CONNECT CARD
+       --------------------------- */
 
-      page.appendChild(
+    const connectCard =
+      el(
+        "section",
+        "card"
+      );
+
+
+    const connectHeading =
+      el(
+        "div",
+        "card-heading"
+      );
+
+
+    const connectTitle =
+      document.createElement(
+        "h2"
+      );
+
+
+    connectTitle.textContent =
+      "Connect an account";
+
+
+    connectHeading.appendChild(
+      connectTitle
+    );
+
+
+    connectCard.appendChild(
+      connectHeading
+    );
+
+
+    if (
+      !state.projects.length
+    ) {
+
+      connectCard.appendChild(
         emptyState(
-          "◎",
-          "No social accounts",
-          "Register your TikTok, YouTube and Instagram accounts here. We connect OAuth next."
+          "◇",
+          "Create a project first",
+
+          "Social accounts are attached to a project or brand."
         )
       );
 
+    } else {
+
+      const controls =
+        el(
+          "div",
+          "social-connect-controls"
+        );
+
+
+      const projectSelect =
+        document.createElement(
+          "select"
+        );
+
+
+      projectSelect.className =
+        "project-switcher";
+
+
+      for (
+        const project of
+          state.projects
+      ) {
+
+        addOption(
+          projectSelect,
+          String(
+            project.id
+          ),
+          project.name
+        );
+
+      }
+
+
+      if (
+        state.activeProjectId
+      ) {
+
+        projectSelect.value =
+          state.activeProjectId;
+
+      }
+
+
+      /* TikTok */
+
+      const tiktok =
+        document.createElement(
+          "button"
+        );
+
+
+      tiktok.type =
+        "button";
+
+
+      tiktok.className =
+        "secondary-button";
+
+
+      tiktok.textContent =
+        "♪ Connect TikTok";
+
+
+      tiktok.addEventListener(
+        "click",
+        async () => {
+
+          try {
+
+            tiktok.disabled =
+              true;
+
+
+            tiktok.textContent =
+              "Opening TikTok…";
+
+
+            const result =
+              await API
+                .startTikTokOAuth(
+                  Number(
+                    projectSelect.value
+                  )
+                );
+
+
+            window.location.href =
+              result.authorizationUrl;
+
+          } catch (error) {
+
+            showToast(
+              readableError(
+                error
+              ),
+              true
+            );
+
+
+            tiktok.disabled =
+              false;
+
+
+            tiktok.textContent =
+              "♪ Connect TikTok";
+
+          }
+
+        }
+      );
+
+
+      /* YouTube */
+
+      const youtube =
+        document.createElement(
+          "button"
+        );
+
+
+      youtube.type =
+        "button";
+
+
+      youtube.className =
+        "secondary-button";
+
+
+      youtube.textContent =
+        "▶ Connect YouTube";
+
+
+      youtube.addEventListener(
+        "click",
+        async () => {
+
+          try {
+
+            youtube.disabled =
+              true;
+
+
+            youtube.textContent =
+              "Opening Google…";
+
+
+            const result =
+              await API
+                .startYouTubeOAuth(
+                  Number(
+                    projectSelect.value
+                  )
+                );
+
+
+            window.location.href =
+              result.authorizationUrl;
+
+          } catch (error) {
+
+            showToast(
+              readableError(
+                error
+              ),
+              true
+            );
+
+
+            youtube.disabled =
+              false;
+
+
+            youtube.textContent =
+              "▶ Connect YouTube";
+
+          }
+
+        }
+      );
+
+
+      controls.append(
+        projectSelect,
+        tiktok,
+        youtube
+      );
+
+
+      connectCard.appendChild(
+        controls
+      );
+
+    }
+
+
+    page.appendChild(
+      connectCard
+    );
+
+
+    /* ---------------------------
+       CONNECTED ACCOUNTS
+       --------------------------- */
+
+    const section =
+      document.createElement(
+        "section"
+      );
+
+
+    section.style.marginTop =
+      "18px";
+
+
+    if (
+      !accounts.length
+    ) {
+
+      section.appendChild(
+        emptyState(
+          "◎",
+          "No social accounts",
+
+          "Connect TikTok or YouTube above. Once connected, the account stays attached to its project."
+        )
+      );
+
+
+      page.appendChild(
+        section
+      );
+
+
+      handleOAuthResult();
+
+
       return;
+
     }
 
 
@@ -1227,7 +1825,8 @@
 
 
     for (
-      const account of accounts
+      const account of
+        accounts
     ) {
 
       const card =
@@ -1242,6 +1841,7 @@
           "div",
           "platform-icon"
         );
+
 
       icon.textContent =
         platformIcon(
@@ -1261,6 +1861,7 @@
           "h3"
         );
 
+
       title.textContent =
         account.account_name;
 
@@ -1269,6 +1870,7 @@
         document.createElement(
           "small"
         );
+
 
       handle.textContent =
         account.account_handle ||
@@ -1289,20 +1891,17 @@
           "small"
         );
 
+
       project.textContent =
         account.project_name ||
         "Unassigned";
 
 
-      const status =
-        statusPill(
-          account.status
-        );
-
-
       footer.append(
         project,
-        status
+        statusPill(
+          account.status
+        )
       );
 
 
@@ -1313,25 +1912,331 @@
       );
 
 
+      /* TikTok capability test */
+
+      if (
+        account.status ===
+          "connected" &&
+        account.platform ===
+          "tiktok"
+      ) {
+
+        const test =
+          document.createElement(
+            "button"
+          );
+
+
+        test.type =
+          "button";
+
+
+        test.className =
+          "ghost-button";
+
+
+        test.style.marginTop =
+          "12px";
+
+
+        test.style.marginRight =
+          "8px";
+
+
+        test.textContent =
+          "Check posting access";
+
+
+        test.addEventListener(
+          "click",
+          async () => {
+
+            try {
+
+              test.disabled =
+                true;
+
+
+              test.textContent =
+                "Checking…";
+
+
+              const result =
+                await API
+                  .tiktokCreatorInfo(
+                    account.id
+                  );
+
+
+              const options =
+                result.creator
+                  ?.privacy_level_options ||
+                [];
+
+
+              showToast(
+                options.length
+                  ? `TikTok ready: ${options.length} privacy options available.`
+                  : "TikTok connection is active."
+              );
+
+            } catch (error) {
+
+              showToast(
+                readableError(
+                  error
+                ),
+                true
+              );
+
+            } finally {
+
+              test.disabled =
+                false;
+
+
+              test.textContent =
+                "Check posting access";
+
+            }
+
+          }
+        );
+
+
+        body.appendChild(
+          test
+        );
+
+      }
+
+
+      /* Disconnect */
+
+      if (
+        account.status ===
+        "connected"
+      ) {
+
+        const disconnect =
+          document.createElement(
+            "button"
+          );
+
+
+        disconnect.type =
+          "button";
+
+
+        disconnect.className =
+          "ghost-button";
+
+
+        disconnect.style.marginTop =
+          "12px";
+
+
+        disconnect.textContent =
+          "Disconnect";
+
+
+        disconnect.addEventListener(
+          "click",
+          async () => {
+
+            const confirmed =
+              window.confirm(
+                `Disconnect ${account.account_name}?`
+              );
+
+
+            if (!confirmed) {
+
+              return;
+
+            }
+
+
+            try {
+
+              disconnect.disabled =
+                true;
+
+
+              await API
+                .disconnectAccount(
+                  account.id
+                );
+
+
+              showToast(
+                "Account disconnected."
+              );
+
+
+              await renderAccounts();
+
+            } catch (error) {
+
+              showToast(
+                readableError(
+                  error
+                ),
+                true
+              );
+
+
+              disconnect.disabled =
+                false;
+
+            }
+
+          }
+        );
+
+
+        body.appendChild(
+          disconnect
+        );
+
+      }
+
+
       card.append(
         icon,
         body
       );
 
-      grid.appendChild(card);
+
+      grid.appendChild(
+        card
+      );
 
     }
 
 
-    page.appendChild(grid);
+    section.appendChild(
+      grid
+    );
+
+
+    page.appendChild(
+      section
+    );
+
+
+    handleOAuthResult();
 
   }
 
+
+  /* ===================================================
+     OAUTH RESULT
+     =================================================== */
+
+  function handleOAuthResult() {
+
+    const url =
+      new URL(
+        window.location.href
+      );
+
+
+    const provider =
+      url.searchParams.get(
+        "oauth"
+      );
+
+
+    const result =
+      url.searchParams.get(
+        "result"
+      );
+
+
+    if (
+      !provider ||
+      !result
+    ) {
+
+      return;
+
+    }
+
+
+    if (
+      result ===
+      "success"
+    ) {
+
+      showToast(
+        `${titleCase(
+          provider
+        )} connected.`
+      );
+
+    } else {
+
+      const error =
+        url.searchParams.get(
+          "error"
+        );
+
+
+      showToast(
+        `${titleCase(
+          provider
+        )} connection failed${
+          error
+            ? `: ${titleCase(
+                error
+              )}`
+            : "."
+        }`,
+        true
+      );
+
+    }
+
+
+    url.searchParams.delete(
+      "oauth"
+    );
+
+
+    url.searchParams.delete(
+      "result"
+    );
+
+
+    url.searchParams.delete(
+      "error"
+    );
+
+
+    url.hash =
+      "";
+
+
+    window.history
+      .replaceState(
+        {},
+        "",
+        url.toString()
+      );
+
+  }
+
+
+  /* ===================================================
+     CALENDAR
+     =================================================== */
 
   async function renderCalendar() {
 
     const response =
       await API.calendar();
+
 
     let events =
       response.events;
@@ -1352,6 +2257,7 @@
             )
         );
 
+
       if (active) {
 
         events =
@@ -1368,26 +2274,33 @@
 
     page.innerHTML = "";
 
+
     page.appendChild(
       heading(
         "PUBLISHING",
         "Calendar",
+
         "Scheduled and published content across every connected platform."
       )
     );
 
 
-    if (!events.length) {
+    if (
+      !events.length
+    ) {
 
       page.appendChild(
         emptyState(
           "□",
           "Calendar is clear",
-          "Scheduled publications will appear here once platform publishing is connected."
+
+          "Scheduled publications will appear here when the publishing composer goes live."
         )
       );
 
+
       return;
+
     }
 
 
@@ -1399,7 +2312,8 @@
 
 
     for (
-      const event of events
+      const event of
+        events
     ) {
 
       const row =
@@ -1421,6 +2335,7 @@
           "strong"
         );
 
+
       const dateSmall =
         document.createElement(
           "span"
@@ -1438,8 +2353,11 @@
         when.toLocaleDateString(
           undefined,
           {
-            day: "2-digit",
-            month: "short"
+            day:
+              "2-digit",
+
+            month:
+              "short"
           }
         );
 
@@ -1448,8 +2366,11 @@
         when.toLocaleTimeString(
           undefined,
           {
-            hour: "2-digit",
-            minute: "2-digit"
+            hour:
+              "2-digit",
+
+            minute:
+              "2-digit"
           }
         );
 
@@ -1472,6 +2393,7 @@
           "strong"
         );
 
+
       title.textContent =
         event.content_title;
 
@@ -1480,6 +2402,7 @@
         document.createElement(
           "span"
         );
+
 
       meta.textContent =
         `${event.project_name} · ` +
@@ -1504,17 +2427,27 @@
       );
 
 
-      list.appendChild(row);
+      list.appendChild(
+        row
+      );
 
     }
 
 
-    page.appendChild(list);
+    page.appendChild(
+      list
+    );
 
   }
 
 
-  async function submitContent(event) {
+  /* ===================================================
+     FORM SUBMISSIONS
+     =================================================== */
+
+  async function submitContent(
+    event
+  ) {
 
     event.preventDefault();
 
@@ -1525,16 +2458,21 @@
 
       closeSheets();
 
+
       showToast(
         "Create a project first.",
         true
       );
 
+
       await navigate(
         "projects"
       );
 
-      projectDialog.showModal();
+
+      projectDialog
+        .showModal();
+
 
       return;
 
@@ -1544,7 +2482,9 @@
     const button =
       event.submitter;
 
-    button.disabled = true;
+
+    button.disabled =
+      true;
 
 
     try {
@@ -1553,41 +2493,54 @@
 
         projectId:
           Number(
-            document.getElementById(
-              "contentProject"
-            ).value
+            document
+              .getElementById(
+                "contentProject"
+              )
+              .value
           ),
 
         title:
-          document.getElementById(
-            "contentTitle"
-          ).value,
+          document
+            .getElementById(
+              "contentTitle"
+            )
+            .value,
 
         description:
-          document.getElementById(
-            "contentDescription"
-          ).value,
+          document
+            .getElementById(
+              "contentDescription"
+            )
+            .value,
 
         contentType:
-          document.getElementById(
-            "contentType"
-          ).value,
+          document
+            .getElementById(
+              "contentType"
+            )
+            .value,
 
         status:
-          document.getElementById(
-            "contentStatus"
-          ).value
+          document
+            .getElementById(
+              "contentStatus"
+            )
+            .value
 
       });
 
 
       event.target.reset();
 
+
       closeSheets();
+
 
       showToast(
         "Content created."
       );
+
 
       await navigate(
         "content"
@@ -1596,13 +2549,16 @@
     } catch (error) {
 
       showToast(
-        readableError(error),
+        readableError(
+          error
+        ),
         true
       );
 
     } finally {
 
-      button.disabled = false;
+      button.disabled =
+        false;
 
     }
 
@@ -1615,10 +2571,13 @@
 
     event.preventDefault();
 
+
     const button =
       event.submitter;
 
-    button.disabled = true;
+
+    button.disabled =
+      true;
 
 
     try {
@@ -1626,43 +2585,57 @@
       await API.createProject({
 
         name:
-          document.getElementById(
-            "projectName"
-          ).value,
+          document
+            .getElementById(
+              "projectName"
+            )
+            .value,
 
         description:
-          document.getElementById(
-            "projectDescription"
-          ).value,
+          document
+            .getElementById(
+              "projectDescription"
+            )
+            .value,
 
         projectType:
-          document.getElementById(
-            "projectType"
-          ).value,
+          document
+            .getElementById(
+              "projectType"
+            )
+            .value,
 
         accentColour:
-          document.getElementById(
-            "projectColour"
-          ).value
+          document
+            .getElementById(
+              "projectColour"
+            )
+            .value
 
       });
 
 
       event.target.reset();
 
-      document.getElementById(
-        "projectColour"
-      ).value =
-        "#8b5cf6";
+
+      document
+        .getElementById(
+          "projectColour"
+        )
+        .value =
+          "#8b5cf6";
 
 
       projectDialog.close();
 
+
       await loadProjects();
+
 
       showToast(
         "Project created."
       );
+
 
       await navigate(
         "projects",
@@ -1672,13 +2645,16 @@
     } catch (error) {
 
       showToast(
-        readableError(error),
+        readableError(
+          error
+        ),
         true
       );
 
     } finally {
 
-      button.disabled = false;
+      button.disabled =
+        false;
 
     }
 
@@ -1691,10 +2667,13 @@
 
     event.preventDefault();
 
+
     const button =
       event.submitter;
 
-    button.disabled = true;
+
+    button.disabled =
+      true;
 
 
     try {
@@ -1702,19 +2681,25 @@
       await API.createIdea({
 
         title:
-          document.getElementById(
-            "ideaTitle"
-          ).value,
+          document
+            .getElementById(
+              "ideaTitle"
+            )
+            .value,
 
         description:
-          document.getElementById(
-            "ideaDescription"
-          ).value,
+          document
+            .getElementById(
+              "ideaDescription"
+            )
+            .value,
 
         projectId:
-          document.getElementById(
-            "ideaProject"
-          ).value,
+          document
+            .getElementById(
+              "ideaProject"
+            )
+            .value,
 
         ideaType:
           "content"
@@ -1724,11 +2709,14 @@
 
       event.target.reset();
 
+
       ideaDialog.close();
+
 
       showToast(
         "Idea captured."
       );
+
 
       await navigate(
         "ideas",
@@ -1738,18 +2726,29 @@
     } catch (error) {
 
       showToast(
-        readableError(error),
+        readableError(
+          error
+        ),
         true
       );
 
     } finally {
 
-      button.disabled = false;
+      button.disabled =
+        false;
 
     }
 
   }
 
+
+  /*
+    Retained for the existing
+    account dialog.
+
+    OAuth is now the preferred
+    TikTok/YouTube workflow.
+  */
 
   async function submitAccount(
     event
@@ -1757,10 +2756,13 @@
 
     event.preventDefault();
 
+
     const button =
       event.submitter;
 
-    button.disabled = true;
+
+    button.disabled =
+      true;
 
 
     try {
@@ -1769,36 +2771,47 @@
 
         projectId:
           Number(
-            document.getElementById(
-              "accountProject"
-            ).value
+            document
+              .getElementById(
+                "accountProject"
+              )
+              .value
           ),
 
         platform:
-          document.getElementById(
-            "accountPlatform"
-          ).value,
+          document
+            .getElementById(
+              "accountPlatform"
+            )
+            .value,
 
         accountName:
-          document.getElementById(
-            "accountName"
-          ).value,
+          document
+            .getElementById(
+              "accountName"
+            )
+            .value,
 
         accountHandle:
-          document.getElementById(
-            "accountHandle"
-          ).value
+          document
+            .getElementById(
+              "accountHandle"
+            )
+            .value
 
       });
 
 
       event.target.reset();
 
+
       accountDialog.close();
+
 
       showToast(
         "Account added."
       );
+
 
       await navigate(
         "accounts",
@@ -1808,18 +2821,25 @@
     } catch (error) {
 
       showToast(
-        readableError(error),
+        readableError(
+          error
+        ),
         true
       );
 
     } finally {
 
-      button.disabled = false;
+      button.disabled =
+        false;
 
     }
 
   }
 
+
+  /* ===================================================
+     CREATE SHEET
+     =================================================== */
 
   function openCreateSheet() {
 
@@ -1832,16 +2852,22 @@
         true
       );
 
+
       navigate(
         "projects"
       );
 
+
       setTimeout(
-        () =>
+        () => {
+
           projectDialog
-            .showModal(),
+            .showModal();
+
+        },
         100
       );
+
 
       return;
 
@@ -1871,15 +2897,21 @@
   }
 
 
-  function openSheet(sheet) {
+  function openSheet(
+    sheet
+  ) {
 
     closeSheets();
 
-    backdrop.hidden = false;
+
+    backdrop.hidden =
+      false;
+
 
     sheet.classList.add(
       "open"
     );
+
 
     sheet.setAttribute(
       "aria-hidden",
@@ -1903,6 +2935,7 @@
         "open"
       );
 
+
       sheet.setAttribute(
         "aria-hidden",
         "true"
@@ -1910,10 +2943,16 @@
 
     }
 
-    backdrop.hidden = true;
+
+    backdrop.hidden =
+      true;
 
   }
 
+
+  /* ===================================================
+     LOGOUT
+     =================================================== */
 
   async function logout() {
 
@@ -1923,7 +2962,9 @@
 
     } catch (error) {
 
-      console.error(error);
+      console.error(
+        error
+      );
 
     } finally {
 
@@ -1934,6 +2975,10 @@
 
   }
 
+
+  /* ===================================================
+     COMPONENTS
+     =================================================== */
 
   function heading(
     eyebrow,
@@ -1962,6 +3007,7 @@
         "eyebrow"
       );
 
+
     eyebrowEl.textContent =
       eyebrow;
 
@@ -1971,6 +3017,7 @@
         "h1"
       );
 
+
     h1.textContent =
       title;
 
@@ -1979,6 +3026,7 @@
       document.createElement(
         "p"
       );
+
 
     p.textContent =
       description;
@@ -1991,7 +3039,9 @@
     );
 
 
-    wrapper.appendChild(text);
+    wrapper.appendChild(
+      text
+    );
 
 
     if (
@@ -2005,16 +3055,20 @@
           "secondary-button"
         );
 
+
       button.type =
         "button";
 
+
       button.textContent =
         actionLabel;
+
 
       button.addEventListener(
         "click",
         action
       );
+
 
       wrapper.appendChild(
         button
@@ -2046,6 +3100,7 @@
         "metric-label"
       );
 
+
     labelEl.textContent =
       label;
 
@@ -2055,6 +3110,7 @@
         "strong",
         "metric-number"
       );
+
 
     numberEl.textContent =
       number;
@@ -2098,6 +3154,7 @@
         "h2"
       );
 
+
     h2.textContent =
       title;
 
@@ -2106,6 +3163,7 @@
       document.createElement(
         "span"
       );
+
 
     count.textContent =
       `${items.length}`;
@@ -2116,25 +3174,34 @@
       count
     );
 
+
     card.appendChild(
       cardHeading
     );
 
 
-    if (!items.length) {
+    if (
+      !items.length
+    ) {
 
       const p =
         document.createElement(
           "p"
         );
 
+
       p.className =
         "metric-label";
+
 
       p.textContent =
         emptyMessage;
 
-      card.appendChild(p);
+
+      card.appendChild(
+        p
+      );
+
 
       return card;
 
@@ -2150,7 +3217,10 @@
 
     for (
       const item of
-        items.slice(0, 6)
+        items.slice(
+          0,
+          6
+        )
     ) {
 
       const mapped =
@@ -2176,6 +3246,7 @@
           "strong"
         );
 
+
       strong.textContent =
         mapped.title;
 
@@ -2184,6 +3255,7 @@
         document.createElement(
           "small"
         );
+
 
       small.textContent =
         mapped.subtitle;
@@ -2203,19 +3275,26 @@
       );
 
 
-      list.appendChild(row);
+      list.appendChild(
+        row
+      );
 
     }
 
 
-    card.appendChild(list);
+    card.appendChild(
+      list
+    );
+
 
     return card;
 
   }
 
 
-  function statusPill(status) {
+  function statusPill(
+    status
+  ) {
 
     const pill =
       el(
@@ -2225,10 +3304,13 @@
         }`
       );
 
+
     pill.textContent =
       titleCase(
-        status || "unknown"
+        status ||
+        "unknown"
       );
+
 
     return pill;
 
@@ -2254,6 +3336,7 @@
         "empty-icon"
       );
 
+
     iconEl.textContent =
       icon;
 
@@ -2263,6 +3346,7 @@
         "strong"
       );
 
+
     strong.textContent =
       title;
 
@@ -2271,6 +3355,7 @@
       document.createElement(
         "p"
       );
+
 
     p.textContent =
       description;
@@ -2288,6 +3373,10 @@
   }
 
 
+  /* ===================================================
+     LOADING / ERRORS
+     =================================================== */
+
   function showLoading() {
 
     page.innerHTML = `
@@ -2302,9 +3391,13 @@
   }
 
 
-  function showFatal(message) {
+  function showFatal(
+    message
+  ) {
 
-    page.innerHTML = "";
+    page.innerHTML =
+      "";
+
 
     page.appendChild(
       emptyState(
@@ -2325,12 +3418,15 @@
     toast.textContent =
       message;
 
+
     toast.classList.toggle(
       "error",
       error
     );
 
-    toast.hidden = false;
+
+    toast.hidden =
+      false;
 
 
     clearTimeout(
@@ -2341,13 +3437,20 @@
     showToast.timeout =
       setTimeout(
         () => {
-          toast.hidden = true;
+
+          toast.hidden =
+            true;
+
         },
-        3000
+        3500
       );
 
   }
 
+
+  /* ===================================================
+     FILTERS
+     =================================================== */
 
   function filterByProject(
     items,
@@ -2357,8 +3460,11 @@
     if (
       !state.activeProjectId
     ) {
+
       return items;
+
     }
+
 
     return items.filter(
       item =>
@@ -2380,14 +3486,18 @@
     if (
       !state.activeProjectId
     ) {
+
       return items;
+
     }
 
 
     const project =
       state.projects.find(
         item =>
-          String(item.id) ===
+          String(
+            item.id
+          ) ===
           String(
             state.activeProjectId
           )
@@ -2395,7 +3505,9 @@
 
 
     if (!project) {
+
       return items;
+
     }
 
 
@@ -2413,14 +3525,18 @@
     if (
       !state.activeProjectId
     ) {
+
       return "All projects";
+
     }
 
 
     const project =
       state.projects.find(
         item =>
-          String(item.id) ===
+          String(
+            item.id
+          ) ===
           String(
             state.activeProjectId
           )
@@ -2434,43 +3550,79 @@
   }
 
 
+  /* ===================================================
+     TEXT HELPERS
+     =================================================== */
+
   function greeting() {
 
     const hour =
-      new Date().getHours();
+      new Date()
+        .getHours();
+
 
     const name =
-      state.user?.displayName ||
-      state.user?.username ||
+      state.user
+        ?.displayName ||
+      state.user
+        ?.username ||
       "";
 
 
-    if (hour < 12) {
+    if (
+      hour < 12
+    ) {
+
       return `Morning, ${name}`;
+
     }
 
-    if (hour < 18) {
+
+    if (
+      hour < 18
+    ) {
+
       return `Afternoon, ${name}`;
+
     }
+
 
     return `Evening, ${name}`;
 
   }
 
 
-  function routeLabel(route) {
+  function routeLabel(
+    route
+  ) {
 
     const labels = {
-      today: "Today",
-      content: "Content",
-      calendar: "Calendar",
-      projects: "Projects",
-      ideas: "Ideas",
-      accounts: "Accounts"
+
+      today:
+        "Today",
+
+      content:
+        "Content",
+
+      calendar:
+        "Calendar",
+
+      projects:
+        "Projects",
+
+      ideas:
+        "Ideas",
+
+      accounts:
+        "Accounts"
+
     };
 
-    return labels[route] ||
-      "Project Hub";
+
+    return (
+      labels[route] ||
+      "Project Hub"
+    );
 
   }
 
@@ -2480,38 +3632,59 @@
   ) {
 
     const icons = {
-      tiktok: "♪",
-      youtube: "▶",
-      instagram: "◎"
+
+      tiktok:
+        "♪",
+
+      youtube:
+        "▶",
+
+      instagram:
+        "◎"
+
     };
 
-    return icons[platform] ||
-      "◎";
+
+    return (
+      icons[platform] ||
+      "◎"
+    );
 
   }
 
 
-  function titleCase(value) {
+  function titleCase(
+    value
+  ) {
 
     if (!value) {
+
       return "";
+
     }
 
-    return String(value)
+
+    return String(
+      value
+    )
       .replace(
         /[_-]+/g,
         " "
       )
       .replace(
         /\b\w/g,
+
         character =>
-          character.toUpperCase()
+          character
+            .toUpperCase()
       );
 
   }
 
 
-  function readableError(error) {
+  function readableError(
+    error
+  ) {
 
     const value =
       error?.data?.error ||
@@ -2519,10 +3692,48 @@
       "Something went wrong.";
 
 
-    return titleCase(value);
+    const known = {
+
+      TIKTOK_CLIENT_KEY_MISSING:
+        "TikTok client key has not been added to the Worker yet.",
+
+      TIKTOK_CLIENT_SECRET_MISSING:
+        "TikTok client secret has not been added to the Worker yet.",
+
+      GOOGLE_CLIENT_ID_MISSING:
+        "Google client ID has not been added to the Worker yet.",
+
+      GOOGLE_CLIENT_SECRET_MISSING:
+        "Google client secret has not been added to the Worker yet.",
+
+      TOKEN_ENCRYPTION_KEY_MISSING:
+        "Token encryption key is missing.",
+
+      ACCOUNT_RECONNECT_REQUIRED:
+        "This account needs to be reconnected.",
+
+      TOKEN_REFRESH_FAILED:
+        "The social account token could not be refreshed.",
+
+      INVALID_PROJECT:
+        "Select a valid project."
+
+    };
+
+
+    return (
+      known[value] ||
+      titleCase(
+        value
+      )
+    );
 
   }
 
+
+  /* ===================================================
+     DOM HELPERS
+     =================================================== */
 
   function addOption(
     select,
@@ -2535,11 +3746,14 @@
         "option"
       );
 
+
     option.value =
       value;
 
+
     option.textContent =
       label;
+
 
     select.appendChild(
       option
@@ -2558,10 +3772,14 @@
         tag
       );
 
+
     if (className) {
+
       element.className =
         className;
+
     }
+
 
     return element;
 
