@@ -3,10 +3,16 @@
 window.ProjectHubAPI = (() => {
 
   const baseUrl =
-    window.APP_CONFIG.API_BASE_URL
-      .replace(/\/+$/, "");
+    window.APP_CONFIG
+      .API_BASE_URL
+      .replace(
+        /\/+$/,
+        ""
+      );
 
-  let csrfToken = null;
+  let csrfToken =
+    null;
+
 
   async function request(
     path,
@@ -19,17 +25,32 @@ window.ProjectHubAPI = (() => {
         "GET"
       ).toUpperCase();
 
+
     const headers = {
-      Accept: "application/json",
-      ...(options.headers || {})
+
+      Accept:
+        "application/json",
+
+      ...(
+        options.headers ||
+        {}
+      )
+
     };
 
+
     if (
-      options.body !== undefined
+      options.body !==
+      undefined
     ) {
-      headers["Content-Type"] =
+
+      headers[
+        "Content-Type"
+      ] =
         "application/json";
+
     }
+
 
     if (
       csrfToken &&
@@ -37,22 +58,35 @@ window.ProjectHubAPI = (() => {
         "GET",
         "HEAD",
         "OPTIONS"
-      ].includes(method) &&
-      path !== "/api/auth/login"
+      ].includes(
+        method
+      ) &&
+      path !==
+        "/api/auth/login"
     ) {
-      headers["X-CSRF-Token"] =
+
+      headers[
+        "X-CSRF-Token"
+      ] =
         csrfToken;
+
     }
+
 
     const response =
       await fetch(
         `${baseUrl}${path}`,
         {
           method,
-          credentials: "include",
+
+          credentials:
+            "include",
+
           headers,
+
           body:
-            options.body === undefined
+            options.body ===
+            undefined
               ? undefined
               : JSON.stringify(
                   options.body
@@ -60,100 +94,158 @@ window.ProjectHubAPI = (() => {
         }
       );
 
+
     let data;
 
+
     try {
+
       data =
         await response.json();
+
     } catch {
+
       data = {
         ok: false,
         error:
           "INVALID_SERVER_RESPONSE"
       };
+
     }
 
-    if (data.csrfToken) {
-      csrfToken =
-        data.csrfToken;
-    }
 
     if (
-      response.status === 401 &&
-      path !== "/api/auth/login"
+      data.csrfToken
     ) {
+
+      csrfToken =
+        data.csrfToken;
+
+    }
+
+
+    if (
+      response.status ===
+        401 &&
+      path !==
+        "/api/auth/login"
+    ) {
+
       window.location.href =
         "./login.html";
+
 
       throw new Error(
         "UNAUTHENTICATED"
       );
+
     }
 
+
     if (!response.ok) {
+
       const error =
         new Error(
           data.error ||
           `HTTP_${response.status}`
         );
 
+
       error.status =
         response.status;
 
-      error.data = data;
+
+      error.data =
+        data;
+
 
       throw error;
+
     }
 
+
     return data;
+
   }
 
+
   return {
+
+    /* =========================
+       AUTH
+       ========================= */
 
     async login(
       username,
       password
     ) {
+
       return request(
         "/api/auth/login",
         {
           method: "POST",
+
           body: {
             username,
             password
           }
         }
       );
+
     },
 
+
     async logout() {
+
       return request(
         "/api/auth/logout",
         {
           method: "POST"
         }
       );
+
     },
 
+
     async me() {
+
       return request(
         "/api/auth/me"
       );
+
     },
 
+
+    /* =========================
+       DASHBOARD
+       ========================= */
+
     async dashboard() {
+
       return request(
         "/api/dashboard"
       );
+
     },
 
+
+    /* =========================
+       PROJECTS
+       ========================= */
+
     async projects() {
+
       return request(
         "/api/projects"
       );
+
     },
 
-    async createProject(data) {
+
+    async createProject(
+      data
+    ) {
+
       return request(
         "/api/projects",
         {
@@ -161,28 +253,49 @@ window.ProjectHubAPI = (() => {
           body: data
         }
       );
+
     },
 
-    async content(filters = {}) {
+
+    /* =========================
+       CONTENT
+       ========================= */
+
+    async content(
+      filters = {}
+    ) {
+
       const params =
         new URLSearchParams();
 
-      if (filters.projectId) {
+
+      if (
+        filters.projectId
+      ) {
+
         params.set(
           "projectId",
           filters.projectId
         );
+
       }
 
-      if (filters.status) {
+
+      if (
+        filters.status
+      ) {
+
         params.set(
           "status",
           filters.status
         );
+
       }
+
 
       const query =
         params.toString();
+
 
       return request(
         `/api/content${
@@ -191,9 +304,14 @@ window.ProjectHubAPI = (() => {
             : ""
         }`
       );
+
     },
 
-    async createContent(data) {
+
+    async createContent(
+      data
+    ) {
+
       return request(
         "/api/content",
         {
@@ -201,30 +319,46 @@ window.ProjectHubAPI = (() => {
           body: data
         }
       );
+
     },
+
 
     async updateContentStatus(
       id,
       status
     ) {
+
       return request(
         `/api/content/${id}/status`,
         {
           method: "PATCH",
+
           body: {
             status
           }
         }
       );
+
     },
 
+
+    /* =========================
+       IDEAS
+       ========================= */
+
     async ideas() {
+
       return request(
         "/api/ideas"
       );
+
     },
 
-    async createIdea(data) {
+
+    async createIdea(
+      data
+    ) {
+
       return request(
         "/api/ideas",
         {
@@ -232,15 +366,27 @@ window.ProjectHubAPI = (() => {
           body: data
         }
       );
+
     },
 
+
+    /* =========================
+       ACCOUNTS
+       ========================= */
+
     async accounts() {
+
       return request(
         "/api/accounts"
       );
+
     },
 
-    async createAccount(data) {
+
+    async createAccount(
+      data
+    ) {
+
       return request(
         "/api/accounts",
         {
@@ -248,12 +394,89 @@ window.ProjectHubAPI = (() => {
           body: data
         }
       );
+
     },
 
+
+    async disconnectAccount(
+      accountId
+    ) {
+
+      return request(
+        `/api/accounts/${accountId}/disconnect`,
+        {
+          method: "POST"
+        }
+      );
+
+    },
+
+
+    /* =========================
+       TIKTOK
+       ========================= */
+
+    async startTikTokOAuth(
+      projectId
+    ) {
+
+      return request(
+        "/api/oauth/tiktok/start",
+        {
+          method: "POST",
+
+          body: {
+            projectId
+          }
+        }
+      );
+
+    },
+
+
+    async tiktokCreatorInfo(
+      accountId
+    ) {
+
+      return request(
+        `/api/accounts/${accountId}/creator-info`
+      );
+
+    },
+
+
+    /* =========================
+       YOUTUBE
+       ========================= */
+
+    async startYouTubeOAuth(
+      projectId
+    ) {
+
+      return request(
+        "/api/oauth/youtube/start",
+        {
+          method: "POST",
+
+          body: {
+            projectId
+          }
+        }
+      );
+
+    },
+
+
+    /* =========================
+       CALENDAR
+       ========================= */
+
     async calendar() {
+
       return request(
         "/api/calendar"
       );
+
     }
 
   };
