@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#080b12"
+  >
+
+  <meta
+    name="color-scheme"
+    content="dark"
+  >
+
+  <title>Command Centre</title>
+
+  <link
+    rel="stylesheet"
+    href="./css/app.css"
+  >
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <!-- ================================
+         DESKTOP SIDEBAR
+    ================================= -->
+
+    <aside class="sidebar">
+      <div class="brand-block">
+        <div class="brand-mark">CC</div>
+
+        <div>
+          <strong>Command Centre</strong>
+          <span>Project & Content OS</span>
+        </div>
+      </div>
+
+      <div class="sidebar-workspace">
+        <label for="projectSwitcher">
+          ACTIVE WORKSPACE
+        </label>
+
+        <select
+          id="projectSwitcher"
+          class="project-switcher"
+          aria-label="Active workspace"
+        >
+          <option value="">
+            All projects
+          </option>
+        </select>
+      </div>
+
+      <nav class="desktop-nav">
+        <button
+          class="nav-item active"
+          data-route="today"
+          type="button"
+        >
+          <span class="nav-icon">⌂</span>
+          <span>Today</span>
+        </button>
+
+        <button
+          class="nav-item"
+          data-route="content"
+          type="button"
+        >
+          <span class="nav-icon">▤</span>
+          <span>Content</span>
+        </button>
+
+        <button
+          class="nav-item"
+          data-route="calendar"
+          type="button"
+        >
+          <span class="nav-icon">□</span>
+          <span>Calendar</span>
+        </button>
+
+        <button
+          class="nav-item"
+          data-route="projects"
+          type="button"
+        >
+          <span class="nav-icon">◇</span>
+          <span>Projects</span>
+        </button>
+
+        <button
+          class="nav-item"
+          data-route="ideas"
+          type="button"
+        >
+          <span class="nav-icon">✦</span>
+          <span>Ideas</span>
+        </button>
+
+        <button
+          class="nav-item"
+          data-route="accounts"
+          type="button"
+        >
+          <span class="nav-icon">◎</span>
+          <span>Accounts</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button
+          id="logoutButton"
+          class="nav-item"
+          type="button"
+        >
+          <span class="nav-icon">↗</span>
+          <span>Sign out</span>
+        </button>
+      </div>
+    </aside>
+
+
+    <!-- ================================
+         MAIN
+    ================================= -->
+
+    <main class="main-area">
+
+      <header class="topbar">
+        <div class="mobile-brand">
+          <div class="brand-mark small">
+            CC
+          </div>
+
+          <div class="mobile-brand-copy">
+            <span>COMMAND CENTRE</span>
+
+            <strong id="mobileSection">
+              Today
+            </strong>
+          </div>
+        </div>
+
+        <div class="desktop-page-heading">
+          <span class="eyebrow">
+            COMMAND CENTRE
+          </span>
+
+          <strong id="desktopSection">
+            Today
+          </strong>
+        </div>
+
+        <div class="topbar-actions">
+          <button
+            id="createButton"
+            class="primary-button desktop-create"
+            type="button"
+          >
+            <span>＋</span>
+            Create
+          </button>
+
+          <button
+            id="userButton"
+            class="user-button"
+            type="button"
+            aria-label="User"
+          >
+            <span id="userInitial">
+              K
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <section
+        id="page"
+        class="page"
+        aria-live="polite"
+      >
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading Command Centre…</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+
+  <!-- ================================
+       MOBILE BOTTOM NAV
+  ================================= -->
+
+  <nav class="mobile-nav">
+
+    <button
+      class="mobile-nav-item active"
+      data-route="today"
+      type="button"
+    >
+      <span>⌂</span>
+      <small>Today</small>
+    </button>
+
+    <button
+      class="mobile-nav-item"
+      data-route="content"
+      type="button"
+    >
+      <span>▤</span>
+      <small>Content</small>
+    </button>
+
+    <button
+      id="mobileCreateButton"
+      class="mobile-create-button"
+      type="button"
+      aria-label="Create"
+    >
+      ＋
+    </button>
+
+    <button
+      class="mobile-nav-item"
+      data-route="calendar"
+      type="button"
+    >
+      <span>□</span>
+      <small>Calendar</small>
+    </button>
+
+    <button
+      id="moreButton"
+      class="mobile-nav-item"
+      type="button"
+    >
+      <span>•••</span>
+      <small>More</small>
+    </button>
+
+  </nav>
+
+
+  <!-- ================================
+       BACKDROP
+  ================================= -->
+
+  <div
+    id="backdrop"
+    class="backdrop"
+    hidden
+  ></div>
+
+
+  <!-- ================================
+       CREATE SHEET
+  ================================= -->
+
+  <section
+    id="createSheet"
+    class="sheet create-sheet"
+    aria-label="Create content"
+    hidden
+  >
+    <div class="sheet-handle"></div>
+
+    <header class="sheet-header">
+      <div>
+        <span class="eyebrow">
+          NEW CONTENT
+        </span>
+
+        <h2>Create something</h2>
+      </div>
+
+      <button
+        class="icon-button"
+        data-close-sheet
+        type="button"
+        aria-label="Close"
+      >
+        ×
+      </button>
+    </header>
+
+    <form
+      id="contentForm"
+      class="form-stack"
+    >
+      <label class="field">
+        <span>Workspace</span>
+
+        <select
+          id="contentProject"
+          required
+        ></select>
+      </label>
+
+      <label class="field">
+        <span>Working title</span>
+
+        <input
+          id="contentTitle"
+          type="text"
+          maxlength="200"
+          autocomplete="off"
+          placeholder="e.g. RS2 Was Hard — Episode 1"
+          required
+        >
+      </label>
+
+      <label class="field">
+        <span>Notes / description</span>
+
+        <textarea
+          id="contentDescription"
+          maxlength="5000"
+          rows="4"
+          placeholder="Hook, edit notes, CTA, clips to use..."
+        ></textarea>
+      </label>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>Format</span>
+
+          <select
+            id="contentType"
+            required
+          >
+            <option value="video">
+              Video
+            </option>
+
+            <option value="image">
+              Image
+            </option>
+
+            <option value="carousel">
+              Carousel
+            </option>
+
+            <option value="text">
+              Text
+            </option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Stage</span>
+
+          <select
+            id="contentStatus"
+            required
+          >
+            <option value="idea">
+              Idea
+            </option>
+
+            <option value="script">
+              Script
+            </option>
+
+            <option value="recording">
+              Recording
+            </option>
+
+            <option value="editing">
+              Editing
+            </option>
+
+            <option value="ready">
+              Ready
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <div class="platform-preview">
+        <div class="platform-preview-header">
+          <div>
+            <span class="eyebrow">
+              DISTRIBUTION
+            </span>
+
+            <strong>
+              Platform versions
+            </strong>
+          </div>
+
+          <span class="coming-soon-badge">
+            NEXT BUILD
+          </span>
+        </div>
+
+        <div class="platform-preview-grid">
+          <div class="platform-preview-card">
+            <span class="platform-logo">
+              TT
+            </span>
+
+            <div>
+              <strong>TikTok</strong>
+              <small>
+                Caption · account · schedule
+              </small>
+            </div>
+          </div>
+
+          <div class="platform-preview-card">
+            <span class="platform-logo">
+              YT
+            </span>
+
+            <div>
+              <strong>YouTube</strong>
+              <small>
+                Title · description · schedule
+              </small>
+            </div>
+          </div>
+
+          <div class="platform-preview-card">
+            <span class="platform-logo">
+              IG
+            </span>
+
+            <div>
+              <strong>Instagram</strong>
+              <small>
+                Caption · account · schedule
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        class="primary-button large-button"
+        type="submit"
+      >
+        Create master content
+      </button>
+    </form>
+  </section>
+
+
+  <!-- ================================
+       MORE SHEET
+  ================================= -->
+
+  <section
+    id="moreSheet"
+    class="sheet more-sheet"
+    aria-label="More"
+    hidden
+  >
+    <div class="sheet-handle"></div>
+
+    <header class="sheet-header">
+      <div>
+        <span class="eyebrow">
+          COMMAND CENTRE
+        </span>
+
+        <h2>More</h2>
+      </div>
+
+      <button
+        class="icon-button"
+        data-close-sheet
+        type="button"
+      >
+        ×
+      </button>
+    </header>
+
+    <div class="more-grid">
+
+      <button
+        data-more-route="projects"
+        type="button"
+      >
+        <span>◇</span>
+        <strong>Projects</strong>
+        <small>Brands & workspaces</small>
+      </button>
+
+      <button
+        data-more-route="ideas"
+        type="button"
+      >
+        <span>✦</span>
+        <strong>Ideas</strong>
+        <small>Capture everything</small>
+      </button>
+
+      <button
+        data-more-route="accounts"
+        type="button"
+      >
+        <span>◎</span>
+        <strong>Accounts</strong>
+        <small>Social connections</small>
+      </button>
+
+      <button
+        data-more-route="analytics"
+        type="button"
+      >
+        <span>↗</span>
+        <strong>Analytics</strong>
+        <small>Coming soon</small>
+      </button>
+
+    </div>
+
+    <button
+      id="mobileLogout"
+      class="danger-button"
+      type="button"
+    >
+      Sign out
+    </button>
+  </section>
+
+
+  <!-- ================================
+       PROJECT DIALOG
+  ================================= -->
+
+  <dialog
+    id="projectDialog"
+    class="app-dialog"
+  >
+    <form
+      id="projectForm"
+      class="dialog-card"
+    >
+      <header class="dialog-header">
+        <div>
+          <span class="eyebrow">
+            NEW WORKSPACE
+          </span>
+
+          <h2>Create project</h2>
+        </div>
+
+        <button
+          id="closeProjectDialog"
+          class="icon-button"
+          type="button"
+        >
+          ×
+        </button>
+      </header>
+
+      <label class="field">
+        <span>Name</span>
+
+        <input
+          id="projectName"
+          maxlength="100"
+          placeholder="e.g. OSRS"
+          required
+        >
+      </label>
+
+      <label class="field">
+        <span>Description</span>
+
+        <textarea
+          id="projectDescription"
+          maxlength="2000"
+          rows="3"
+          placeholder="What is this workspace for?"
+        ></textarea>
+      </label>
+
+      <label class="field">
+        <span>Type</span>
+
+        <select id="projectType">
+          <option value="content">
+            Content / Creator
+          </option>
+
+          <option value="brand">
+            Brand
+          </option>
+
+          <option value="software">
+            Software
+          </option>
+
+          <option value="game">
+            Game Development
+          </option>
+
+          <option value="website">
+            Website / SaaS
+          </option>
+
+          <option value="custom">
+            Custom
+          </option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Accent colour</span>
+
+        <input
+          id="projectColour"
+          type="color"
+          value="#6C63FF"
+        >
+      </label>
+
+      <button
+        class="primary-button large-button"
+        type="submit"
+      >
+        Create workspace
+      </button>
+    </form>
+  </dialog>
+
+
+  <!-- ================================
+       IDEA DIALOG
+  ================================= -->
+
+  <dialog
+    id="ideaDialog"
+    class="app-dialog"
+  >
+    <form
+      id="ideaForm"
+      class="dialog-card"
+    >
+      <header class="dialog-header">
+        <div>
+          <span class="eyebrow">
+            QUICK CAPTURE
+          </span>
+
+          <h2>New idea</h2>
+        </div>
+
+        <button
+          id="closeIdeaDialog"
+          class="icon-button"
+          type="button"
+        >
+          ×
+        </button>
+      </header>
+
+      <label class="field">
+        <span>Idea</span>
+
+        <input
+          id="ideaTitle"
+          maxlength="200"
+          placeholder="What's the idea?"
+          required
+        >
+      </label>
+
+      <label class="field">
+        <span>Workspace</span>
+
+        <select id="ideaProject">
+          <option value="">
+            Unassigned
+          </option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Notes</span>
+
+        <textarea
+          id="ideaDescription"
+          maxlength="5000"
+          rows="4"
+          placeholder="Anything you'll forget later..."
+        ></textarea>
+      </label>
+
+      <button
+        class="primary-button large-button"
+        type="submit"
+      >
+        Save idea
+      </button>
+    </form>
+  </dialog>
+
+
+  <!-- ================================
+       ACCOUNT DIALOG
+  ================================= -->
+
+  <dialog
+    id="accountDialog"
+    class="app-dialog"
+  >
+    <form
+      id="accountForm"
+      class="dialog-card"
+    >
+      <header class="dialog-header">
+        <div>
+          <span class="eyebrow">
+            SOCIAL ACCOUNT
+          </span>
+
+          <h2>Add account</h2>
+        </div>
+
+        <button
+          id="closeAccountDialog"
+          class="icon-button"
+          type="button"
+        >
+          ×
+        </button>
+      </header>
+
+      <label class="field">
+        <span>Workspace</span>
+
+        <select
+          id="accountProject"
+          required
+        ></select>
+      </label>
+
+      <label class="field">
+        <span>Platform</span>
+
+        <select
+          id="accountPlatform"
+          required
+        >
+          <option value="tiktok">
+            TikTok
+          </option>
+
+          <option value="youtube">
+            YouTube
+          </option>
+
+          <option value="instagram">
+            Instagram
+          </option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Account name</span>
+
+        <input
+          id="accountName"
+          maxlength="200"
+          placeholder="e.g. Kirk OSRS"
+          required
+        >
+      </label>
+
+      <label class="field">
+        <span>Handle</span>
+
+        <input
+          id="accountHandle"
+          maxlength="200"
+          placeholder="@handle"
+        >
+      </label>
+
+      <button
+        class="primary-button large-button"
+        type="submit"
+      >
+        Add account
+      </button>
+    </form>
+  </dialog>
+
+
+  <!-- ================================
+       TOAST
+  ================================= -->
+
+  <div
+    id="toast"
+    class="toast"
+    role="status"
+    hidden
+  ></div>
+
+
+  <script src="./js/config.js"></script>
+  <script src="./js/api.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
