@@ -16,10 +16,6 @@ import {
 } from "./oauth.js";
 
 
-/* =========================================================
-   GET OWNED MEDIA UPLOAD
-========================================================= */
-
 async function getOwnedUpload(
   env,
   userId,
@@ -46,8 +42,6 @@ async function getOwnedUpload(
 
         social_accounts.account_name,
         social_accounts.account_handle,
-        social_accounts.status
-          AS account_status,
 
         content.title
           AS content_title
@@ -63,7 +57,7 @@ async function getOwnedUpload(
            media_uploads.content_id
 
       WHERE media_uploads.id = ?
-      AND media_uploads.user_id = ?
+        AND media_uploads.user_id = ?
 
       LIMIT 1
     `)
@@ -75,17 +69,12 @@ async function getOwnedUpload(
 }
 
 
-/* =========================================================
-   NORMALISE TIKTOK STATUS
-========================================================= */
-
-function normaliseStatus(
-  providerStatus
+function normaliseTikTokStatus(
+  status
 ) {
   switch (
-    String(
-      providerStatus || ""
-    ).toUpperCase()
+    String(status || "")
+      .toUpperCase()
   ) {
     case "PUBLISH_COMPLETE":
       return "published";
@@ -93,20 +82,11 @@ function normaliseStatus(
     case "FAILED":
       return "failed";
 
-    case "PROCESSING_UPLOAD":
-    case "PROCESSING_DOWNLOAD":
-    case "SEND_TO_USER_INBOX":
-      return "processing";
-
     default:
       return "processing";
   }
 }
 
-
-/* =========================================================
-   FETCH TIKTOK STATUS
-========================================================= */
 
 export async function getTikTokPublishStatus(
   request,
@@ -119,24 +99,19 @@ export async function getTikTokPublishStatus(
       env
     );
 
-
   if (!session) {
     return json(
       {
         ok: false,
-        error:
-          "UNAUTHENTICATED"
+        error: "UNAUTHENTICATED"
       },
       401,
       request
     );
   }
 
-
   if (
-    !Number.isInteger(
-      uploadId
-    ) ||
+    !Number.isInteger(uploadId) ||
     uploadId <= 0
   ) {
     return badRequest(
@@ -145,7 +120,6 @@ export async function getTikTokPublishStatus(
     );
   }
 
-
   const upload =
     await getOwnedUpload(
       env,
@@ -153,40 +127,31 @@ export async function getTikTokPublishStatus(
       uploadId
     );
 
-
   if (!upload) {
     return json(
       {
         ok: false,
-        error:
-          "UPLOAD_NOT_FOUND"
+        error: "UPLOAD_NOT_FOUND"
       },
       404,
       request
     );
   }
 
-
-  if (
-    upload.platform !==
-    "tiktok"
-  ) {
+  if (upload.platform !== "tiktok") {
     return badRequest(
       request,
       "UPLOAD_IS_NOT_TIKTOK"
     );
   }
 
-
   /*
-   * Terminal states don't need another
-   * provider request.
+   * Terminal local states do not need
+   * another TikTok request.
    */
   if (
-    upload.upload_state ===
-      "published" ||
-    upload.upload_state ===
-      "failed"
+    upload.upload_state === "published" ||
+    upload.upload_state === "failed"
   ) {
     return json(
       {
@@ -207,21 +172,16 @@ export async function getTikTokPublishStatus(
     );
   }
 
-
-  if (
-    !upload.platform_upload_id
-  ) {
+  if (!upload.platform_upload_id) {
     return json(
       {
         ok: false,
-        error:
-          "PUBLISH_ID_MISSING"
+        error: "PUBLISH_ID_MISSING"
       },
       409,
       request
     );
   }
-
 
   const credential =
     await getOAuthCredential(
@@ -229,22 +189,18 @@ export async function getTikTokPublishStatus(
       upload.social_account_id
     );
 
-
   if (!credential) {
     return json(
       {
         ok: false,
-        error:
-          "ACCOUNT_NOT_CONNECTED"
+        error: "ACCOUNT_NOT_CONNECTED"
       },
       409,
       request
     );
   }
 
-
   let accessToken;
-
 
   try {
     accessToken =
@@ -254,51 +210,42 @@ export async function getTikTokPublishStatus(
       );
   } catch (error) {
     console.error(
-      "TikTok status token:",
+      "TikTok status token error:",
       error
     );
-
 
     return json(
       {
         ok: false,
-        error:
-          "TIKTOK_REAUTH_REQUIRED"
+        error: "TIKTOK_REAUTH_REQUIRED"
       },
       409,
       request
     );
   }
 
+  const response = await fetch(
+    "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+    {
+      method: "POST",
 
-  const response =
-    await fetch(
-      "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
-      {
-        method: "POST",
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
 
-        headers: {
-          Authorization:
-            `Bearer ${accessToken}`,
+        "Content-Type":
+          "application/json; charset=UTF-8"
+      },
 
-          "Content-Type":
-            "application/json; charset=UTF-8"
-        },
-
-        body:
-          JSON.stringify({
-            publish_id:
-              upload.platform_upload_id
-          })
-      }
-    );
-
+      body: JSON.stringify({
+        publish_id:
+          upload.platform_upload_id
+      })
+    }
+  );
 
   const data =
-    await safeJson(
-      response
-    );
-
+    await safeJson(response);
 
   if (
     !response.ok ||
@@ -308,10 +255,9 @@ export async function getTikTokPublishStatus(
     )
   ) {
     console.error(
-      "TikTok publish status failed:",
+      "TikTok status fetch failed:",
       data
     );
-
 
     return json(
       {
@@ -321,63 +267,51 @@ export async function getTikTokPublishStatus(
           "TIKTOK_STATUS_FAILED",
 
         providerError:
-          data?.error?.code ||
-          null
+          data?.error?.code || null
       },
       502,
       request
     );
   }
 
-
   const providerData =
     data?.data || {};
-
 
   const providerStatus =
     String(
       providerData.status || ""
     ).toUpperCase();
 
-
   const localState =
-    normaliseStatus(
+    normaliseTikTokStatus(
       providerStatus
     );
-
 
   const failReason =
     localState === "failed"
       ? String(
           providerData.fail_reason ||
           "TikTok reported that publishing failed."
-        ).slice(
-          0,
-          1000
-        )
+        ).slice(0, 1000)
       : null;
 
-
   /*
-   * TikTok may provide one or more public
-   * post IDs after successful publishing.
+   * TikTok currently spells this response
+   * property "publicaly_available_post_id".
    */
   const publicPostIds =
     Array.isArray(
-      providerData.publicaly_available_post_id
+      providerData
+        .publicaly_available_post_id
     )
       ? providerData
           .publicaly_available_post_id
       : [];
 
-
   const platformPostId =
-    publicPostIds.length
-      ? String(
-          publicPostIds[0]
-        )
+    publicPostIds.length > 0
+      ? String(publicPostIds[0])
       : null;
-
 
   await env.DB
     .prepare(`
@@ -398,7 +332,7 @@ export async function getTikTokPublishStatus(
           CURRENT_TIMESTAMP
 
       WHERE id = ?
-      AND user_id = ?
+        AND user_id = ?
     `)
     .bind(
       localState,
@@ -409,45 +343,12 @@ export async function getTikTokPublishStatus(
     )
     .run();
 
-
-  /*
-   * If TikTok confirms the post exists,
-   * update the master content status too.
-   *
-   * We do NOT do this merely because the
-   * browser finished transferring the file.
-   */
-  if (
-    localState ===
-    "published"
-  ) {
-    await env.DB
-      .prepare(`
-        UPDATE content
-
-        SET
-          status = 'published',
-          updated_at =
-            CURRENT_TIMESTAMP
-
-        WHERE id = ?
-        AND user_id = ?
-      `)
-      .bind(
-        upload.content_id,
-        session.user.id
-      )
-      .run();
-  }
-
-
   const refreshed =
     await getOwnedUpload(
       env,
       session.user.id,
       uploadId
     );
-
 
   return json(
     {
