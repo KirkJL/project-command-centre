@@ -61,10 +61,12 @@ import {
   cancelPublication
 } from "./publications.js";
 
+import {
+  initialiseTikTokUpload,
+  completeTikTokUpload,
+  getMediaUploads
+} from "./media.js";
 
-/* =========================================================
-   ROUTER
-========================================================= */
 
 export async function handleRequest(
   request,
@@ -81,10 +83,6 @@ export async function handleRequest(
       "Origin"
     );
 
-
-  /* =======================================================
-     ORIGIN PROTECTION
-  ======================================================= */
 
   if (
     origin &&
@@ -104,10 +102,6 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     CORS PREFLIGHT
-  ======================================================= */
-
   if (
     request.method ===
     "OPTIONS"
@@ -118,10 +112,6 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     SERVICE ROOT
-  ======================================================= */
-
   if (
     url.pathname === "/" &&
     request.method === "GET"
@@ -131,17 +121,13 @@ export async function handleRequest(
         ok: true,
         service:
           "Project Hub API",
-        version: "3C"
+        version: "3G"
       },
       200,
       request
     );
   }
 
-
-  /* =======================================================
-     HEALTH
-  ======================================================= */
 
   if (
     url.pathname ===
@@ -152,17 +138,13 @@ export async function handleRequest(
       {
         ok: true,
         status: "healthy",
-        version: "3C"
+        version: "3G"
       },
       200,
       request
     );
   }
 
-
-  /* =======================================================
-     AUTH
-  ======================================================= */
 
   if (
     url.pathname ===
@@ -200,10 +182,6 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     DASHBOARD
-  ======================================================= */
-
   if (
     url.pathname ===
       "/api/dashboard" &&
@@ -215,10 +193,6 @@ export async function handleRequest(
     );
   }
 
-
-  /* =======================================================
-     PROJECTS
-  ======================================================= */
 
   if (
     url.pathname ===
@@ -244,10 +218,6 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     CONTENT
-  ======================================================= */
-
   if (
     url.pathname ===
       "/api/content"
@@ -272,16 +242,11 @@ export async function handleRequest(
   }
 
 
-  /*
-    Content status:
-
-    PATCH /api/content/:id/status
-  */
-
   const contentStatusMatch =
     url.pathname.match(
       /^\/api\/content\/(\d+)\/status$/
     );
+
 
   if (
     contentStatusMatch &&
@@ -297,16 +262,11 @@ export async function handleRequest(
   }
 
 
-  /*
-    Publishing composer data:
-
-    GET /api/content/:id/publishing
-  */
-
   const publishingDataMatch =
     url.pathname.match(
       /^\/api\/content\/(\d+)\/publishing$/
     );
+
 
   if (
     publishingDataMatch &&
@@ -321,15 +281,6 @@ export async function handleRequest(
     );
   }
 
-
-  /* =======================================================
-     PUBLICATIONS
-  ======================================================= */
-
-  /*
-    GET  /api/publications
-    POST /api/publications
-  */
 
   if (
     url.pathname ===
@@ -355,21 +306,18 @@ export async function handleRequest(
   }
 
 
-  /*
-    PATCH  /api/publications/:id
-    DELETE /api/publications/:id
-  */
-
   const publicationMatch =
     url.pathname.match(
       /^\/api\/publications\/(\d+)$/
     );
+
 
   if (publicationMatch) {
     const publicationId =
       Number(
         publicationMatch[1]
       );
+
 
     if (
       request.method === "PATCH"
@@ -380,6 +328,7 @@ export async function handleRequest(
         publicationId
       );
     }
+
 
     if (
       request.method === "DELETE"
@@ -393,9 +342,53 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     IDEAS
-  ======================================================= */
+  /*
+   * MEDIA
+   */
+
+  if (
+    url.pathname ===
+      "/api/media" &&
+    request.method === "GET"
+  ) {
+    return getMediaUploads(
+      request,
+      env
+    );
+  }
+
+
+  if (
+    url.pathname ===
+      "/api/media/tiktok/init" &&
+    request.method === "POST"
+  ) {
+    return initialiseTikTokUpload(
+      request,
+      env
+    );
+  }
+
+
+  const mediaCompleteMatch =
+    url.pathname.match(
+      /^\/api\/media\/tiktok\/(\d+)\/complete$/
+    );
+
+
+  if (
+    mediaCompleteMatch &&
+    request.method === "POST"
+  ) {
+    return completeTikTokUpload(
+      request,
+      env,
+      Number(
+        mediaCompleteMatch[1]
+      )
+    );
+  }
+
 
   if (
     url.pathname ===
@@ -421,10 +414,6 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     SOCIAL ACCOUNTS
-  ======================================================= */
-
   if (
     url.pathname ===
       "/api/accounts"
@@ -449,16 +438,11 @@ export async function handleRequest(
   }
 
 
-  /*
-    Disconnect account:
-
-    POST /api/accounts/:id/disconnect
-  */
-
   const disconnectMatch =
     url.pathname.match(
       /^\/api\/accounts\/(\d+)\/disconnect$/
     );
+
 
   if (
     disconnectMatch &&
@@ -474,16 +458,11 @@ export async function handleRequest(
   }
 
 
-  /*
-    TikTok creator info:
-
-    GET /api/accounts/:id/creator-info
-  */
-
   const creatorInfoMatch =
     url.pathname.match(
       /^\/api\/accounts\/(\d+)\/creator-info$/
     );
+
 
   if (
     creatorInfoMatch &&
@@ -499,10 +478,6 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     CALENDAR
-  ======================================================= */
-
   if (
     url.pathname ===
       "/api/calendar" &&
@@ -514,10 +489,6 @@ export async function handleRequest(
     );
   }
 
-
-  /* =======================================================
-     TIKTOK OAUTH
-  ======================================================= */
 
   if (
     url.pathname ===
@@ -543,10 +514,6 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     YOUTUBE OAUTH
-  ======================================================= */
-
   if (
     url.pathname ===
       "/api/oauth/youtube/start" &&
@@ -571,14 +538,11 @@ export async function handleRequest(
   }
 
 
-  /* =======================================================
-     NOT FOUND
-  ======================================================= */
-
   return json(
     {
       ok: false,
-      error: "NOT_FOUND"
+      error:
+        "NOT_FOUND"
     },
     404,
     request
@@ -600,6 +564,7 @@ async function dashboard(
       env
     );
 
+
   if (!session) {
     return json(
       {
@@ -612,16 +577,10 @@ async function dashboard(
     );
   }
 
+
   const user =
     session.user;
 
-
-  /*
-    These are intentionally independent queries.
-
-    Promise.all allows D1 to perform the reads without
-    serialising every dashboard query.
-  */
 
   const [
     projects,
@@ -631,10 +590,6 @@ async function dashboard(
     ideas
   ] =
     await Promise.all([
-
-      /* ---------------------------------------------------
-         ACTIVE PROJECTS
-      --------------------------------------------------- */
 
       env.DB
         .prepare(`
@@ -661,10 +616,6 @@ async function dashboard(
         )
         .all(),
 
-
-      /* ---------------------------------------------------
-         TASKS
-      --------------------------------------------------- */
 
       env.DB
         .prepare(`
@@ -697,13 +648,10 @@ async function dashboard(
             CASE tasks.priority
               WHEN 'critical'
                 THEN 1
-
               WHEN 'high'
                 THEN 2
-
               WHEN 'normal'
                 THEN 3
-
               ELSE 4
             END,
 
@@ -716,13 +664,6 @@ async function dashboard(
         )
         .all(),
 
-
-      /* ---------------------------------------------------
-         PUBLISHING QUEUE
-
-         Build 3C now reads publication_jobs rather than
-         the old publications placeholder table.
-      --------------------------------------------------- */
 
       env.DB
         .prepare(`
@@ -785,7 +726,6 @@ async function dashboard(
             END,
 
             publication_jobs.scheduled_at ASC,
-
             publication_jobs.created_at ASC
 
           LIMIT 10
@@ -795,10 +735,6 @@ async function dashboard(
         )
         .all(),
 
-
-      /* ---------------------------------------------------
-         RECENT CONTENT
-      --------------------------------------------------- */
 
       env.DB
         .prepare(`
@@ -835,10 +771,6 @@ async function dashboard(
         .all(),
 
 
-      /* ---------------------------------------------------
-         IDEA INBOX COUNT
-      --------------------------------------------------- */
-
       env.DB
         .prepare(`
           SELECT
@@ -855,10 +787,6 @@ async function dashboard(
         .first()
     ]);
 
-
-  /* =======================================================
-     RESPONSE
-  ======================================================= */
 
   return json(
     {
