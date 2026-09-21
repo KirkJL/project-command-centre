@@ -67,7 +67,9 @@ import {
   getMediaUploads
 } from "./media.js";
 
-
+import {
+  getTikTokPublishStatus
+} from "./tiktokStatus.js";
 export async function handleRequest(
   request,
   env,
