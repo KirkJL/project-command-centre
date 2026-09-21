@@ -540,6 +540,24 @@ export async function handleRequest(
     );
   }
 
+  const mediaStatusMatch =
+  url.pathname.match(
+    /^\/api\/media\/tiktok\/(\d+)\/status$/
+  );
+
+
+if (
+  mediaStatusMatch &&
+  request.method === "GET"
+) {
+  return getTikTokPublishStatus(
+    request,
+    env,
+    Number(
+      mediaStatusMatch[1]
+    )
+  );
+}
 
   return json(
     {
