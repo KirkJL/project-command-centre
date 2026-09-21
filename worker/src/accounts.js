@@ -24,6 +24,7 @@ import {
   writeAudit
 } from "./audit.js";
 
+
 export async function getAccounts(
   request,
   env
@@ -38,8 +39,7 @@ export async function getAccounts(
     return json(
       {
         ok: false,
-        error:
-          "UNAUTHENTICATED"
+        error: "UNAUTHENTICATED"
       },
       401,
       request
@@ -58,19 +58,23 @@ export async function getAccounts(
           social_accounts.account_handle,
 
           CASE
-            WHEN oauth_credentials.id
-              IS NOT NULL
+            WHEN oauth_credentials.id IS NOT NULL
             THEN 'connected'
             ELSE 'disconnected'
           END AS status,
+
+          CASE
+            WHEN oauth_credentials.id IS NOT NULL
+            THEN 'connected'
+            ELSE 'disconnected'
+          END AS connection_status,
 
           oauth_credentials.expires_at,
 
           social_accounts.created_at,
           social_accounts.updated_at,
 
-          projects.name
-            AS project_name
+          projects.name AS project_name
 
         FROM social_accounts
 
@@ -86,7 +90,8 @@ export async function getAccounts(
 
         ORDER BY
           projects.name ASC,
-          social_accounts.platform ASC
+          social_accounts.platform ASC,
+          social_accounts.account_name ASC
       `)
       .bind(
         session.user.id
@@ -103,6 +108,7 @@ export async function getAccounts(
     request
   );
 }
+
 
 export async function createAccount(
   request,
@@ -157,6 +163,24 @@ export async function createAccount(
     return badRequest(
       request,
       "INVALID_PLATFORM"
+    );
+  }
+
+  /*
+   * TikTok and YouTube accounts should now be
+   * created by their OAuth callbacks.
+   *
+   * We retain manual creation for future/non-OAuth
+   * platforms such as Instagram while it is not yet
+   * integrated.
+   */
+  if (
+    platform === "tiktok" ||
+    platform === "youtube"
+  ) {
+    return badRequest(
+      request,
+      "USE_OAUTH_TO_CONNECT_ACCOUNT"
     );
   }
 
@@ -231,6 +255,7 @@ export async function createAccount(
   );
 }
 
+
 export async function disconnectSocialAccount(
   request,
   env,
@@ -249,7 +274,9 @@ export async function disconnectSocialAccount(
   const account =
     await env.DB
       .prepare(`
-        SELECT id
+        SELECT
+          id,
+          platform
         FROM social_accounts
         WHERE id = ?
         AND user_id = ?
@@ -315,6 +342,7 @@ export async function disconnectSocialAccount(
   );
 }
 
+
 export async function upsertSocialAccount(
   env,
   {
@@ -326,6 +354,43 @@ export async function upsertSocialAccount(
     accountHandle
   }
 ) {
+  if (
+    !userId ||
+    !projectId ||
+    !platform ||
+    !platformUserId
+  ) {
+    throw new Error(
+      "INVALID_SOCIAL_ACCOUNT"
+    );
+  }
+
+  const cleanName =
+    String(
+      accountName ||
+      platform
+    ).slice(
+      0,
+      200
+    );
+
+  const cleanHandle =
+    accountHandle
+      ? String(
+          accountHandle
+        ).slice(
+          0,
+          200
+        )
+      : null;
+
+  /*
+   * First search by the provider's immutable account ID.
+   *
+   * This means reconnecting the same TikTok/YouTube
+   * account updates the existing record instead of
+   * creating duplicates.
+   */
   const existing =
     await env.DB
       .prepare(`
@@ -356,15 +421,74 @@ export async function upsertSocialAccount(
           updated_at =
             CURRENT_TIMESTAMP
         WHERE id = ?
+        AND user_id = ?
       `)
       .bind(
-        accountName,
-        accountHandle,
-        existing.id
+        cleanName,
+        cleanHandle,
+        existing.id,
+        userId
       )
       .run();
 
     return existing.id;
+  }
+
+  /*
+   * Clean up an old disconnected placeholder where
+   * possible instead of leaving duplicate cards behind.
+   */
+  const placeholder =
+    await env.DB
+      .prepare(`
+        SELECT
+          social_accounts.id
+        FROM social_accounts
+
+        LEFT JOIN oauth_credentials
+          ON oauth_credentials.social_account_id =
+             social_accounts.id
+
+        WHERE social_accounts.user_id = ?
+        AND social_accounts.project_id = ?
+        AND social_accounts.platform = ?
+        AND social_accounts.platform_user_id IS NULL
+        AND oauth_credentials.id IS NULL
+
+        ORDER BY social_accounts.id ASC
+        LIMIT 1
+      `)
+      .bind(
+        userId,
+        projectId,
+        platform
+      )
+      .first();
+
+  if (placeholder) {
+    await env.DB
+      .prepare(`
+        UPDATE social_accounts
+        SET
+          platform_user_id = ?,
+          account_name = ?,
+          account_handle = ?,
+          status = 'connected',
+          updated_at =
+            CURRENT_TIMESTAMP
+        WHERE id = ?
+        AND user_id = ?
+      `)
+      .bind(
+        platformUserId,
+        cleanName,
+        cleanHandle,
+        placeholder.id,
+        userId
+      )
+      .run();
+
+    return placeholder.id;
   }
 
   const result =
@@ -393,8 +517,8 @@ export async function upsertSocialAccount(
         projectId,
         platform,
         platformUserId,
-        accountName,
-        accountHandle
+        cleanName,
+        cleanHandle
       )
       .run();
 
