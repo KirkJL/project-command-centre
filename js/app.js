@@ -1653,6 +1653,21 @@
       "publisherForm";
 
 
+    /*
+     * Build 3G-C:
+     * Finished media is selected locally and transferred
+     * directly from the browser to TikTok. Project Hub
+     * never stores the video bytes.
+     */
+    form._selectedMediaFile = null;
+
+    form.appendChild(
+      createFinishedMediaPicker(
+        form
+      )
+    );
+
+
     const accountCards =
       el(
         "div",
@@ -1715,6 +1730,25 @@
 
     footer.appendChild(
       scheduleButton
+    );
+
+
+    const publishNowButton =
+      button(
+        "Publish TikTok Now",
+        "primary-button publisher-now-button",
+
+        async () => {
+          await publishSelectedTikTokNow(
+            form,
+            data.content.id
+          );
+        }
+      );
+
+
+    footer.appendChild(
+      publishNowButton
     );
 
 
@@ -1884,6 +1918,18 @@
           true
         )
       );
+
+
+      if (
+        account.platform ===
+        "tiktok"
+      ) {
+        fields.appendChild(
+          createTikTokOptions(
+            account
+          )
+        );
+      }
     }
 
 
@@ -1953,11 +1999,25 @@
 
     checkbox.addEventListener(
       "change",
-      () => {
+      async () => {
         card.classList.toggle(
           "selected",
           checkbox.checked
         );
+
+
+        if (
+          checkbox.checked &&
+          account.platform ===
+            "tiktok" &&
+          account.connection_status ===
+            "connected"
+        ) {
+          await loadTikTokCreatorOptions(
+            card,
+            account.id
+          );
+        }
       }
     );
 
@@ -2033,6 +2093,1050 @@
 
 
     return label;
+  }
+
+
+  function createFinishedMediaPicker(
+    form
+  ) {
+    const section =
+      el(
+        "section",
+        "media-picker"
+      );
+
+
+    const heading =
+      el(
+        "div",
+        "composer-section-heading"
+      );
+
+
+    heading.appendChild(
+      el(
+        "span",
+        "eyebrow",
+        "FINISHED MEDIA"
+      )
+    );
+
+
+    heading.appendChild(
+      el(
+        "h3",
+        "",
+        "Attach your finished video"
+      )
+    );
+
+
+    section.appendChild(
+      heading
+    );
+
+
+    const dropZone =
+      el(
+        "label",
+        "media-drop-zone"
+      );
+
+
+    const input =
+      document.createElement(
+        "input"
+      );
+
+
+    input.type =
+      "file";
+
+    input.accept =
+      "video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm";
+
+    input.className =
+      "media-file-input";
+
+
+    const icon =
+      el(
+        "span",
+        "media-drop-icon",
+        "↑"
+      );
+
+
+    const copy =
+      el(
+        "div",
+        "media-drop-copy"
+      );
+
+
+    copy.appendChild(
+      el(
+        "strong",
+        "",
+        "Drop your finished video here"
+      )
+    );
+
+
+    copy.appendChild(
+      el(
+        "span",
+        "muted-text",
+        "or choose a file • MP4, MOV or WebM"
+      )
+    );
+
+
+    const fileMeta =
+      el(
+        "div",
+        "media-file-meta"
+      );
+
+
+    dropZone.appendChild(
+      input
+    );
+
+    dropZone.appendChild(
+      icon
+    );
+
+    dropZone.appendChild(
+      copy
+    );
+
+    dropZone.appendChild(
+      fileMeta
+    );
+
+
+    function setFile(
+      file
+    ) {
+      if (
+        !file
+      ) {
+        return;
+      }
+
+
+      const allowed =
+        [
+          "video/mp4",
+          "video/quicktime",
+          "video/webm"
+        ];
+
+
+      if (
+        file.type &&
+        !allowed.includes(
+          file.type
+        )
+      ) {
+        showToast(
+          "Choose an MP4, MOV or WebM video.",
+          true
+        );
+
+        return;
+      }
+
+
+      form._selectedMediaFile =
+        file;
+
+
+      dropZone.classList.add(
+        "has-file"
+      );
+
+
+      clear(
+        fileMeta
+      );
+
+
+      fileMeta.appendChild(
+        el(
+          "strong",
+          "",
+          file.name
+        )
+      );
+
+
+      fileMeta.appendChild(
+        el(
+          "span",
+          "muted-text",
+          formatFileSize(
+            file.size
+          )
+        )
+      );
+    }
+
+
+    input.addEventListener(
+      "change",
+      () => {
+        setFile(
+          input.files?.[0]
+        );
+      }
+    );
+
+
+    for (
+      const eventName
+      of [
+        "dragenter",
+        "dragover"
+      ]
+    ) {
+      dropZone.addEventListener(
+        eventName,
+        event => {
+          event.preventDefault();
+          dropZone.classList.add(
+            "dragging"
+          );
+        }
+      );
+    }
+
+
+    for (
+      const eventName
+      of [
+        "dragleave",
+        "drop"
+      ]
+    ) {
+      dropZone.addEventListener(
+        eventName,
+        event => {
+          event.preventDefault();
+          dropZone.classList.remove(
+            "dragging"
+          );
+        }
+      );
+    }
+
+
+    dropZone.addEventListener(
+      "drop",
+      event => {
+        setFile(
+          event.dataTransfer
+            ?.files?.[0]
+        );
+      }
+    );
+
+
+    section.appendChild(
+      dropZone
+    );
+
+
+    const progress =
+      el(
+        "div",
+        "media-progress"
+      );
+
+
+    progress.hidden =
+      true;
+
+    progress.innerHTML =
+      `<div class="media-progress-top"><strong class="media-progress-label">Preparing upload…</strong><span class="media-progress-percent">0%</span></div><div class="media-progress-track"><div class="media-progress-bar"></div></div><div class="media-progress-detail muted-text"></div>`;
+
+
+    section.appendChild(
+      progress
+    );
+
+
+    return section;
+  }
+
+
+  function createTikTokOptions(
+    account
+  ) {
+    const options =
+      el(
+        "div",
+        "tiktok-options"
+      );
+
+
+    options.dataset.accountId =
+      account.id;
+
+
+    const privacyLabel =
+      el(
+        "label"
+      );
+
+
+    privacyLabel.appendChild(
+      document.createTextNode(
+        "Visibility"
+      )
+    );
+
+
+    const privacy =
+      document.createElement(
+        "select"
+      );
+
+
+    privacy.className =
+      "tiktok-privacy";
+
+
+    const loadingOption =
+      document.createElement(
+        "option"
+      );
+
+
+    loadingOption.value =
+      "SELF_ONLY";
+
+    loadingOption.textContent =
+      "Private";
+
+
+    privacy.appendChild(
+      loadingOption
+    );
+
+
+    privacyLabel.appendChild(
+      privacy
+    );
+
+
+    options.appendChild(
+      privacyLabel
+    );
+
+
+    const toggles =
+      el(
+        "div",
+        "tiktok-toggle-grid"
+      );
+
+
+    toggles.appendChild(
+      createTikTokToggle(
+        "Comments",
+        "tiktok-comments",
+        true
+      )
+    );
+
+    toggles.appendChild(
+      createTikTokToggle(
+        "Duet",
+        "tiktok-duet",
+        true
+      )
+    );
+
+    toggles.appendChild(
+      createTikTokToggle(
+        "Stitch",
+        "tiktok-stitch",
+        true
+      )
+    );
+
+
+    options.appendChild(
+      toggles
+    );
+
+
+    const status =
+      el(
+        "p",
+        "tiktok-options-status muted-text",
+        account.connection_status ===
+          "connected"
+          ? "Select TikTok to load posting options."
+          : "Connect this TikTok account to publish directly."
+      );
+
+
+    options.appendChild(
+      status
+    );
+
+
+    return options;
+  }
+
+
+  function createTikTokToggle(
+    text,
+    className,
+    checked
+  ) {
+    const label =
+      el(
+        "label",
+        "tiktok-toggle"
+      );
+
+
+    const input =
+      document.createElement(
+        "input"
+      );
+
+
+    input.type =
+      "checkbox";
+
+    input.className =
+      className;
+
+    input.checked =
+      checked;
+
+
+    label.appendChild(
+      input
+    );
+
+    label.appendChild(
+      document.createTextNode(
+        text
+      )
+    );
+
+
+    return label;
+  }
+
+
+  async function loadTikTokCreatorOptions(
+    card,
+    accountId
+  ) {
+    const options =
+      card.querySelector(
+        ".tiktok-options"
+      );
+
+
+    if (
+      !options ||
+      options.dataset.loaded ===
+        "true" ||
+      options.dataset.loading ===
+        "true"
+    ) {
+      return;
+    }
+
+
+    const status =
+      options.querySelector(
+        ".tiktok-options-status"
+      );
+
+
+    options.dataset.loading =
+      "true";
+
+
+    status.textContent =
+      "Loading TikTok posting options…";
+
+
+    try {
+      const result =
+        await API.creatorInfo(
+          accountId
+        );
+
+
+      const info =
+        result.creatorInfo ||
+        result.data ||
+        result;
+
+
+      const privacyOptions =
+        info.privacy_level_options ||
+        info.privacyLevelOptions ||
+        [];
+
+
+      const privacy =
+        options.querySelector(
+          ".tiktok-privacy"
+        );
+
+
+      clear(
+        privacy
+      );
+
+
+      const values =
+        privacyOptions.length
+          ? privacyOptions
+          : [
+              "SELF_ONLY"
+            ];
+
+
+      for (
+        const value
+        of values
+      ) {
+        const option =
+          document.createElement(
+            "option"
+          );
+
+
+        option.value =
+          value;
+
+        option.textContent =
+          prettyTikTokPrivacy(
+            value
+          );
+
+
+        privacy.appendChild(
+          option
+        );
+      }
+
+
+      const commentDisabled =
+        Boolean(
+          info.comment_disabled ??
+          info.commentDisabled
+        );
+
+      const duetDisabled =
+        Boolean(
+          info.duet_disabled ??
+          info.duetDisabled
+        );
+
+      const stitchDisabled =
+        Boolean(
+          info.stitch_disabled ??
+          info.stitchDisabled
+        );
+
+
+      applyTikTokCapability(
+        options.querySelector(
+          ".tiktok-comments"
+        ),
+        commentDisabled
+      );
+
+      applyTikTokCapability(
+        options.querySelector(
+          ".tiktok-duet"
+        ),
+        duetDisabled
+      );
+
+      applyTikTokCapability(
+        options.querySelector(
+          ".tiktok-stitch"
+        ),
+        stitchDisabled
+      );
+
+
+      options.dataset.loaded =
+        "true";
+
+      status.textContent =
+        "Posting options loaded from TikTok.";
+
+    } catch (error) {
+      status.textContent =
+        errorMessage(
+          error
+        );
+
+      showToast(
+        "Couldn't load TikTok posting options.",
+        true
+      );
+
+    } finally {
+      options.dataset.loading =
+        "false";
+    }
+  }
+
+
+  function applyTikTokCapability(
+    input,
+    disabledByCreator
+  ) {
+    if (
+      !input
+    ) {
+      return;
+    }
+
+
+    input.disabled =
+      disabledByCreator;
+
+
+    if (
+      disabledByCreator
+    ) {
+      input.checked =
+        false;
+    }
+  }
+
+
+  function prettyTikTokPrivacy(
+    value
+  ) {
+    const labels = {
+      PUBLIC_TO_EVERYONE:
+        "Everyone",
+      MUTUAL_FOLLOW_FRIENDS:
+        "Friends",
+      FOLLOWER_OF_CREATOR:
+        "Followers",
+      SELF_ONLY:
+        "Private"
+    };
+
+
+    return labels[value] ||
+      pretty(
+        value
+      );
+  }
+
+
+  function formatFileSize(
+    bytes
+  ) {
+    const value =
+      Number(bytes) || 0;
+
+
+    if (
+      value < 1024
+    ) {
+      return `${value} B`;
+    }
+
+
+    const units =
+      [
+        "KB",
+        "MB",
+        "GB"
+      ];
+
+
+    let size =
+      value / 1024;
+
+    let unitIndex =
+      0;
+
+
+    while (
+      size >= 1024 &&
+      unitIndex <
+        units.length - 1
+    ) {
+      size /= 1024;
+      unitIndex += 1;
+    }
+
+
+    return `${
+      size >= 100
+        ? size.toFixed(0)
+        : size.toFixed(1)
+    } ${units[unitIndex]}`;
+  }
+
+
+  function setMediaProgress(
+    form,
+    progress
+  ) {
+    const panel =
+      form.querySelector(
+        ".media-progress"
+      );
+
+
+    if (
+      !panel
+    ) {
+      return;
+    }
+
+
+    panel.hidden =
+      false;
+
+
+    const phase =
+      String(
+        progress.phase ||
+        "initialising"
+      );
+
+
+    const labels = {
+      initialising:
+        "Preparing upload…",
+      uploading:
+        "Uploading to TikTok",
+      processing:
+        "TikTok is processing your video…",
+      published:
+        "Published",
+      failed:
+        "Publishing failed"
+    };
+
+
+    const percentage =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            progress.percentage ||
+            0
+          )
+        )
+      );
+
+
+    panel.querySelector(
+      ".media-progress-label"
+    ).textContent =
+      labels[phase] ||
+      pretty(phase);
+
+
+    panel.querySelector(
+      ".media-progress-percent"
+    ).textContent =
+      phase === "processing"
+        ? "Processing"
+        : `${Math.round(percentage)}%`;
+
+
+    panel.querySelector(
+      ".media-progress-bar"
+    ).style.width =
+      `${percentage}%`;
+
+
+    const detail =
+      panel.querySelector(
+        ".media-progress-detail"
+      );
+
+
+    if (
+      progress.loaded !==
+        undefined &&
+      progress.total
+    ) {
+      detail.textContent =
+        `${
+          formatFileSize(
+            progress.loaded
+          )
+        } / ${
+          formatFileSize(
+            progress.total
+          )
+        }`;
+
+    } else {
+      detail.textContent =
+        progress.providerStatus
+          ? pretty(
+              progress.providerStatus
+            )
+          : "";
+    }
+
+
+    panel.classList.toggle(
+      "is-processing",
+      phase === "processing"
+    );
+
+    panel.classList.toggle(
+      "is-success",
+      phase === "published"
+    );
+
+    panel.classList.toggle(
+      "is-error",
+      phase === "failed"
+    );
+  }
+
+
+  async function publishSelectedTikTokNow(
+    form,
+    contentId
+  ) {
+    const file =
+      form._selectedMediaFile;
+
+
+    if (
+      !file
+    ) {
+      showToast(
+        "Choose your finished video first.",
+        true
+      );
+
+      form.querySelector(
+        ".media-drop-zone"
+      )?.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+
+      return;
+    }
+
+
+    const selectedTikTok =
+      [
+        ...form.querySelectorAll(
+          '.destination-card[data-platform="tiktok"]'
+        )
+      ].filter(
+        card =>
+          card.querySelector(
+            ".destination-checkbox"
+          )?.checked
+      );
+
+
+    if (
+      selectedTikTok.length !==
+      1
+    ) {
+      showToast(
+        "Select exactly one TikTok account for Publish Now.",
+        true
+      );
+
+      return;
+    }
+
+
+    const card =
+      selectedTikTok[0];
+
+
+    const options =
+      card.querySelector(
+        ".tiktok-options"
+      );
+
+
+    if (
+      options?.dataset.loaded !==
+      "true"
+    ) {
+      await loadTikTokCreatorOptions(
+        card,
+        Number(
+          card.dataset.accountId
+        )
+      );
+    }
+
+
+    const publishButton =
+      form.querySelector(
+        ".publisher-now-button"
+      );
+
+
+    const footerButtons =
+      [
+        ...form.querySelectorAll(
+          ".publisher-footer button"
+        )
+      ];
+
+
+    for (
+      const node
+      of footerButtons
+    ) {
+      node.disabled =
+        true;
+    }
+
+
+    if (
+      publishButton
+    ) {
+      publishButton.textContent =
+        "Publishing…";
+    }
+
+
+    try {
+      const result =
+        await API.publishTikTokVideo({
+          contentId,
+
+          accountId:
+            Number(
+              card.dataset.accountId
+            ),
+
+          file,
+
+          caption:
+            card.querySelector(
+              ".publication-caption"
+            )?.value || "",
+
+          privacyLevel:
+            card.querySelector(
+              ".tiktok-privacy"
+            )?.value ||
+            "SELF_ONLY",
+
+          disableComment:
+            !Boolean(
+              card.querySelector(
+                ".tiktok-comments"
+              )?.checked
+            ),
+
+          disableDuet:
+            !Boolean(
+              card.querySelector(
+                ".tiktok-duet"
+              )?.checked
+            ),
+
+          disableStitch:
+            !Boolean(
+              card.querySelector(
+                ".tiktok-stitch"
+              )?.checked
+            ),
+
+          onProgress:
+            progress => {
+              setMediaProgress(
+                form,
+                progress
+              );
+            }
+        });
+
+
+      setMediaProgress(
+        form,
+        {
+          phase: "published",
+          percentage: 100,
+          loaded: file.size,
+          total: file.size
+        }
+      );
+
+
+      showToast(
+        "TikTok confirmed the video was published."
+      );
+
+
+      if (
+        result?.postId
+      ) {
+        console.info(
+          "TikTok post ID:",
+          result.postId
+        );
+      }
+
+    } catch (error) {
+      setMediaProgress(
+        form,
+        {
+          phase: "failed",
+          percentage: 100
+        }
+      );
+
+
+      showToast(
+        errorMessage(
+          error
+        ),
+        true
+      );
+
+    } finally {
+      for (
+        const node
+        of footerButtons
+      ) {
+        node.disabled =
+          false;
+      }
+
+
+      if (
+        publishButton
+      ) {
+        publishButton.textContent =
+          "Publish TikTok Now";
+      }
+    }
   }
 
 
