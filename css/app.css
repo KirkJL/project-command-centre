@@ -659,16 +659,12 @@ button:active {
 /* =============================
    PIPELINE
 ============================= */
-
 .pipeline-board {
   display: grid;
+
   grid-auto-flow: column;
 
-  grid-auto-columns:
-    minmax(
-      270px,
-      84vw
-    );
+  grid-auto-columns: 300px;
 
   gap: 12px;
 
@@ -676,8 +672,7 @@ button:active {
 
   padding-bottom: 14px;
 
-  scroll-snap-type:
-    x proximity;
+  scroll-snap-type: x proximity;
 }
 
 
@@ -704,43 +699,42 @@ button:active {
 }
 
 
-.pipeline-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  margin-bottom: 14px;
+.pipeline-column:not(:last-child)::after {
+  display: none;
 }
 
 
-.count-pill {
-  display: grid;
-  place-items: center;
+.pipeline-heading {
+  min-height: auto;
 
-  min-width: 25px;
-  height: 25px;
+  margin-bottom: 14px;
 
-  padding: 0 7px;
+  padding: 0;
 
-  border-radius: 999px;
+  border: 0;
+  border-radius: 0;
 
-  background:
-    rgba(
-      255,
-      255,
-      255,
-      0.06
-    );
+  background: transparent;
 
-  color: var(--muted);
+  backdrop-filter: none;
+}
 
-  font-size: 0.75rem;
+
+.pipeline-heading::before {
+  display: none;
+}
+
+
+.pipeline-heading strong {
+  font-size: inherit;
+
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 
 .pipeline-cards {
-  display: grid;
-  gap: 10px;
+  padding-left: 0;
 }
 
 
@@ -755,45 +749,27 @@ button:active {
 
   background:
     var(--panel-solid);
+
+  box-shadow: none;
+}
+
+
+.content-card::before {
+  display: none;
 }
 
 
 .content-card h3 {
   margin-top: 9px;
-}
 
-
-.content-type {
-  color: var(--muted);
-
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: inherit;
 }
 
 
 .pipeline-empty {
   padding: 28px 12px;
 
-  border:
-    1px dashed var(--border);
-
-  border-radius:
-    var(--radius-small);
-
-  color: var(--muted-2);
   text-align: center;
-}
-
-
-.card-actions,
-.inline-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-
-  margin-top: 14px;
 }
 
 
