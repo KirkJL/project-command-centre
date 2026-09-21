@@ -21,11 +21,14 @@ import {
 } from "./projects.js";
 
 import {
-  createSecureToken
+  createSecureToken,
+  createPkceVerifier,
+  createPkceChallenge
 } from "./security.js";
 
 import {
   requireOAuthSecrets,
+  optionalSecret,
   cleanupOAuthStates,
   consumeOAuthState,
   saveOAuthCredentials,
@@ -35,6 +38,11 @@ import {
 import {
   upsertSocialAccount
 } from "./accounts.js";
+
+import {
+  writeAudit
+} from "./audit.js";
+
 
 export async function startYouTubeOAuth(
   request,
@@ -54,7 +62,6 @@ export async function startYouTubeOAuth(
     env,
     [
       "GOOGLE_CLIENT_ID",
-      "GOOGLE_CLIENT_SECRET",
       "TOKEN_ENCRYPTION_KEY"
     ]
   );
@@ -71,6 +78,18 @@ export async function startYouTubeOAuth(
 
   const projectId =
     Number(body.projectId);
+
+  if (
+    !Number.isInteger(
+      projectId
+    ) ||
+    projectId <= 0
+  ) {
+    return badRequest(
+      request,
+      "INVALID_PROJECT"
+    );
+  }
 
   try {
     await assertOwnedProject(
@@ -92,6 +111,14 @@ export async function startYouTubeOAuth(
   const state =
     createSecureToken();
 
+  const verifier =
+    createPkceVerifier();
+
+  const challenge =
+    await createPkceChallenge(
+      verifier
+    );
+
   await env.DB
     .prepare(`
       INSERT INTO oauth_states (
@@ -104,13 +131,14 @@ export async function startYouTubeOAuth(
       )
       VALUES (
         ?, ?, 'youtube',
-        ?, NULL, ?
+        ?, ?, ?
       )
     `)
     .bind(
       state,
       auth.session.user.id,
       projectId,
+      verifier,
       new Date(
         Date.now() +
         10 * 60 * 1000
@@ -143,7 +171,13 @@ export async function startYouTubeOAuth(
       include_granted_scopes:
         "true",
 
-      state
+      state,
+
+      code_challenge:
+        challenge,
+
+      code_challenge_method:
+        "S256"
     });
 
   return json(
@@ -159,6 +193,7 @@ export async function startYouTubeOAuth(
   );
 }
 
+
 export async function finishYouTubeOAuth(
   request,
   env
@@ -168,7 +203,6 @@ export async function finishYouTubeOAuth(
       env,
       [
         "GOOGLE_CLIENT_ID",
-        "GOOGLE_CLIENT_SECRET",
         "TOKEN_ENCRYPTION_KEY"
       ]
     );
@@ -184,11 +218,20 @@ export async function finishYouTubeOAuth(
         500
       );
 
+    const providerDescription =
+      normalizeString(
+        url.searchParams.get(
+          "error_description"
+        ),
+        500
+      );
+
     if (providerError) {
       return oauthRedirect(
         "youtube",
         false,
-        providerError
+        providerDescription ||
+          providerError
       );
     }
 
@@ -231,6 +274,51 @@ export async function finishYouTubeOAuth(
       );
     }
 
+    if (
+      !oauthState.code_verifier
+    ) {
+      return oauthRedirect(
+        "youtube",
+        false,
+        "missing_pkce_verifier"
+      );
+    }
+
+    const tokenBody =
+      new URLSearchParams({
+        client_id:
+          env.GOOGLE_CLIENT_ID,
+
+        code,
+
+        code_verifier:
+          oauthState.code_verifier,
+
+        grant_type:
+          "authorization_code",
+
+        redirect_uri:
+          YOUTUBE_REDIRECT_URI
+      });
+
+    const googleSecret =
+      optionalSecret(
+        env,
+        "GOOGLE_CLIENT_SECRET"
+      );
+
+    /*
+     * Supports both Google client configurations:
+     * - client ID + PKCE
+     * - confidential web client with a secret
+     */
+    if (googleSecret) {
+      tokenBody.set(
+        "client_secret",
+        googleSecret
+      );
+    }
+
     const tokenResponse =
       await fetch(
         "https://oauth2.googleapis.com/token",
@@ -243,21 +331,7 @@ export async function finishYouTubeOAuth(
           },
 
           body:
-            new URLSearchParams({
-              client_id:
-                env.GOOGLE_CLIENT_ID,
-
-              client_secret:
-                env.GOOGLE_CLIENT_SECRET,
-
-              code,
-
-              grant_type:
-                "authorization_code",
-
-              redirect_uri:
-                YOUTUBE_REDIRECT_URI
-            })
+            tokenBody
         }
       );
 
@@ -270,6 +344,13 @@ export async function finishYouTubeOAuth(
       !tokenResponse.ok ||
       !tokenData.access_token
     ) {
+      console.error(
+        "Google token exchange failed:",
+        tokenData?.error ||
+        tokenData?.error_description ||
+        tokenResponse.status
+      );
+
       return oauthRedirect(
         "youtube",
         false,
@@ -281,6 +362,8 @@ export async function finishYouTubeOAuth(
       await fetch(
         "https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true",
         {
+          method: "GET",
+
           headers: {
             Authorization:
               `Bearer ${tokenData.access_token}`
@@ -300,6 +383,11 @@ export async function finishYouTubeOAuth(
       !channelResponse.ok ||
       !channel
     ) {
+      console.error(
+        "YouTube channel lookup failed:",
+        channelData
+      );
+
       return oauthRedirect(
         "youtube",
         false,
@@ -357,6 +445,15 @@ export async function finishYouTubeOAuth(
       tokenData.scope || ""
     );
 
+    await writeAudit(
+      env,
+      oauthState.user_id,
+      "YOUTUBE_CONNECTED",
+      "social_account",
+      String(accountId),
+      request
+    );
+
     return oauthRedirect(
       "youtube",
       true
@@ -373,4 +470,4 @@ export async function finishYouTubeOAuth(
       "internal_error"
     );
   }
-      }
+}
