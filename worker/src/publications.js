@@ -18,23 +18,35 @@ import {
 } from "./audit.js";
 
 
-const PUBLICATION_STATES = new Set([
+const PUBLICATION_STATES =
+  new Set([
+    "draft",
+    "ready",
+    "queued",
+    "processing",
+    "retrying",
+    "published",
+    "failed",
+    "cancelled"
+  ]);
+
+
+const EDITABLE_STATES =
+  new Set([
+    "draft",
+    "ready",
+    "queued",
+    "failed"
+  ]);
+
+
+const ACTIVE_STATES = [
   "draft",
   "ready",
   "queued",
   "processing",
-  "retrying",
-  "published",
-  "failed",
-  "cancelled"
-]);
-
-
-const EDITABLE_STATES = new Set([
-  "draft",
-  "ready",
-  "queued"
-]);
+  "retrying"
+];
 
 
 /* =========================================================
@@ -55,7 +67,8 @@ export async function getPublications(
     return json(
       {
         ok: false,
-        error: "UNAUTHENTICATED"
+        error:
+          "UNAUTHENTICATED"
       },
       401,
       request
@@ -63,7 +76,9 @@ export async function getPublications(
   }
 
   const url =
-    new URL(request.url);
+    new URL(
+      request.url
+    );
 
   const projectId =
     parseOptionalId(
@@ -103,6 +118,7 @@ export async function getPublications(
 
       publication_jobs.scheduled_at,
       publication_jobs.processing_started_at,
+      publication_jobs.next_attempt_at,
       publication_jobs.published_at,
 
       publication_jobs.external_post_id,
@@ -154,7 +170,9 @@ export async function getPublications(
       AND publication_jobs.project_id = ?
     `;
 
-    bindings.push(projectId);
+    bindings.push(
+      projectId
+    );
   }
 
   if (contentId) {
@@ -162,51 +180,39 @@ export async function getPublications(
       AND publication_jobs.content_id = ?
     `;
 
-    bindings.push(contentId);
+    bindings.push(
+      contentId
+    );
   }
 
   if (
     state &&
-    PUBLICATION_STATES.has(state)
+    PUBLICATION_STATES.has(
+      state
+    )
   ) {
     query += `
       AND publication_jobs.publish_state = ?
     `;
 
-    bindings.push(state);
+    bindings.push(
+      state
+    );
   }
 
   query += `
     ORDER BY
 
       CASE publication_jobs.publish_state
-
-        WHEN 'processing'
-          THEN 1
-
-        WHEN 'retrying'
-          THEN 2
-
-        WHEN 'queued'
-          THEN 3
-
-        WHEN 'ready'
-          THEN 4
-
-        WHEN 'draft'
-          THEN 5
-
-        WHEN 'failed'
-          THEN 6
-
-        WHEN 'published'
-          THEN 7
-
-        WHEN 'cancelled'
-          THEN 8
-
+        WHEN 'processing' THEN 1
+        WHEN 'retrying' THEN 2
+        WHEN 'queued' THEN 3
+        WHEN 'ready' THEN 4
+        WHEN 'failed' THEN 5
+        WHEN 'draft' THEN 6
+        WHEN 'published' THEN 7
+        WHEN 'cancelled' THEN 8
         ELSE 9
-
       END,
 
       CASE
@@ -217,7 +223,6 @@ export async function getPublications(
       END,
 
       publication_jobs.scheduled_at ASC,
-
       publication_jobs.created_at DESC
 
     LIMIT 500
@@ -226,12 +231,15 @@ export async function getPublications(
   const result =
     await env.DB
       .prepare(query)
-      .bind(...bindings)
+      .bind(
+        ...bindings
+      )
       .all();
 
   return json(
     {
       ok: true,
+
       publications:
         result.results || []
     },
@@ -242,15 +250,7 @@ export async function getPublications(
 
 
 /* =========================================================
-   GET CONTENT PUBLISHING DATA
-
-   Used by the frontend composer.
-
-   Returns:
-   - content
-   - project
-   - social accounts belonging to project
-   - existing publication jobs
+   PUBLISHING COMPOSER DATA
 ========================================================= */
 
 export async function getPublishingData(
@@ -268,7 +268,8 @@ export async function getPublishingData(
     return json(
       {
         ok: false,
-        error: "UNAUTHENTICATED"
+        error:
+          "UNAUTHENTICATED"
       },
       401,
       request
@@ -312,7 +313,8 @@ export async function getPublishingData(
     return json(
       {
         ok: false,
-        error: "CONTENT_NOT_FOUND"
+        error:
+          "CONTENT_NOT_FOUND"
       },
       404,
       request
@@ -367,6 +369,8 @@ export async function getPublishingData(
           description,
           publish_state,
           scheduled_at,
+          processing_started_at,
+          next_attempt_at,
           published_at,
           external_post_url,
           attempt_count,
@@ -407,23 +411,7 @@ export async function getPublishingData(
 
 
 /* =========================================================
-   CREATE PUBLICATION(S)
-
-   Allows the composer to create multiple platform jobs in
-   one request.
-
-   {
-     contentId: 12,
-     publications: [
-       {
-         socialAccountId: 3,
-         title: "...",
-         caption: "...",
-         description: "...",
-         scheduledAt: "2026-09-21T18:00:00.000Z"
-       }
-     ]
-   }
+   CREATE PUBLICATIONS
 ========================================================= */
 
 export async function createPublications(
@@ -441,7 +429,9 @@ export async function createPublications(
   }
 
   const body =
-    await readJson(request);
+    await readJson(
+      request
+    );
 
   if (!body) {
     return badRequest(
@@ -451,10 +441,14 @@ export async function createPublications(
   }
 
   const contentId =
-    Number(body.contentId);
+    Number(
+      body.contentId
+    );
 
   if (
-    !Number.isInteger(contentId) ||
+    !Number.isInteger(
+      contentId
+    ) ||
     contentId < 1
   ) {
     return badRequest(
@@ -467,7 +461,8 @@ export async function createPublications(
     !Array.isArray(
       body.publications
     ) ||
-    body.publications.length < 1
+    body.publications.length <
+      1
   ) {
     return badRequest(
       request,
@@ -476,7 +471,8 @@ export async function createPublications(
   }
 
   if (
-    body.publications.length > 10
+    body.publications.length >
+      10
   ) {
     return badRequest(
       request,
@@ -511,7 +507,8 @@ export async function createPublications(
     return json(
       {
         ok: false,
-        error: "CONTENT_NOT_FOUND"
+        error:
+          "CONTENT_NOT_FOUND"
       },
       404,
       request
@@ -529,8 +526,11 @@ export async function createPublications(
   ) {
     if (
       !publication ||
-      typeof publication !== "object" ||
-      Array.isArray(publication)
+      typeof publication !==
+        "object" ||
+      Array.isArray(
+        publication
+      )
     ) {
       return badRequest(
         request,
@@ -540,7 +540,8 @@ export async function createPublications(
 
     const socialAccountId =
       Number(
-        publication.socialAccountId
+        publication
+          .socialAccountId
       );
 
     if (
@@ -623,43 +624,88 @@ export async function createPublications(
       );
     }
 
-    /*
-      We allow disconnected accounts to have DRAFT jobs.
-
-      But a queued job must be connected.
-    */
-
-    const scheduledAt =
-      normalizeSchedule(
-        publication.scheduledAt
-      );
-
     const requestedState =
       normalizeString(
-        publication.publishState,
+        publication
+          .publishState,
         50
       ).toLowerCase();
+
+    const scheduleResult =
+      parseSchedule(
+        publication
+          .scheduledAt
+      );
+
+    if (
+      !scheduleResult.valid
+    ) {
+      return badRequest(
+        request,
+        "INVALID_SCHEDULE"
+      );
+    }
+
+    const scheduledAt =
+      scheduleResult.value;
 
     let publishState;
 
     if (
       requestedState ===
-      "draft"
+        "draft"
     ) {
-      publishState = "draft";
-    } else if (scheduledAt) {
-      publishState = "queued";
+      publishState =
+        "draft";
+    } else if (
+      scheduledAt
+    ) {
+      publishState =
+        "queued";
     } else {
-      publishState = "ready";
+      publishState =
+        "ready";
     }
 
     if (
-      publishState === "queued" &&
-      !Number(account.connected)
+      publishState ===
+        "queued"
     ) {
+      if (
+        !Number(
+          account.connected
+        )
+      ) {
+        return badRequest(
+          request,
+          "ACCOUNT_NOT_CONNECTED"
+        );
+      }
+
+      if (
+        Date.parse(
+          scheduledAt
+        ) <= Date.now()
+      ) {
+        return badRequest(
+          request,
+          "SCHEDULE_MUST_BE_FUTURE"
+        );
+      }
+    }
+
+    const duplicate =
+      await findActiveDuplicate(
+        env,
+        auth.session.user.id,
+        content.id,
+        socialAccountId
+      );
+
+    if (duplicate) {
       return badRequest(
         request,
-        "ACCOUNT_NOT_CONNECTED"
+        "ACTIVE_PUBLICATION_ALREADY_EXISTS"
       );
     }
 
@@ -694,6 +740,7 @@ export async function createPublications(
 
     prepared.push({
       socialAccountId,
+
       platform:
         account.platform,
 
@@ -703,140 +750,88 @@ export async function createPublications(
         null,
 
       caption:
-        caption || null,
+        caption ||
+        null,
 
       description:
-        description || null,
+        description ||
+        null,
 
       publishState,
       scheduledAt
     });
   }
 
-  const statements = [];
+  const statements =
+    prepared.map(
+      publication =>
+        env.DB
+          .prepare(`
+            INSERT INTO publication_jobs (
+              user_id,
+              project_id,
+              content_id,
+              social_account_id,
+              platform,
 
-  for (
-    const publication
-    of prepared
-  ) {
-    statements.push(
-      env.DB
-        .prepare(`
-          INSERT INTO publication_jobs (
-            user_id,
-            project_id,
-            content_id,
-            social_account_id,
-            platform,
+              title,
+              caption,
+              description,
 
-            title,
-            caption,
-            description,
+              publish_state,
+              scheduled_at,
+              next_attempt_at,
 
-            publish_state,
-            scheduled_at,
+              attempt_count,
+              max_attempts,
 
-            attempt_count,
-            max_attempts,
+              created_at,
+              updated_at
+            )
+            VALUES (
+              ?, ?, ?, ?, ?,
+              ?, ?, ?,
+              ?, ?, NULL,
+              0, 3,
+              CURRENT_TIMESTAMP,
+              CURRENT_TIMESTAMP
+            )
+          `)
+          .bind(
+            auth.session.user.id,
+            content.project_id,
+            content.id,
+            publication
+              .socialAccountId,
+            publication.platform,
 
-            created_at,
-            updated_at
+            publication.title,
+            publication.caption,
+            publication.description,
+
+            publication.publishState,
+            publication.scheduledAt
           )
-          VALUES (
-            ?, ?, ?, ?, ?,
-            ?, ?, ?,
-            ?, ?,
-            0, 3,
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-          )
-        `)
-        .bind(
-          auth.session.user.id,
-          content.project_id,
-          content.id,
-          publication.socialAccountId,
-          publication.platform,
-
-          publication.title,
-          publication.caption,
-          publication.description,
-
-          publication.publishState,
-          publication.scheduledAt
-        )
     );
-  }
 
   await env.DB.batch(
     statements
   );
 
-  /*
-    If at least one publication is queued,
-    the master content becomes scheduled.
-
-    Otherwise if it was an early pipeline stage,
-    it becomes ready.
-  */
-
-  const hasQueued =
-    prepared.some(
-      publication =>
-        publication.publishState ===
-        "queued"
-    );
-
-  if (hasQueued) {
-    await env.DB
-      .prepare(`
-        UPDATE content
-        SET
-          status = 'scheduled',
-          updated_at =
-            CURRENT_TIMESTAMP
-        WHERE id = ?
-        AND user_id = ?
-      `)
-      .bind(
-        content.id,
-        auth.session.user.id
-      )
-      .run();
-  } else if (
-    ![
-      "ready",
-      "scheduled",
-      "published"
-    ].includes(
-      String(
-        content.status
-      ).toLowerCase()
-    )
-  ) {
-    await env.DB
-      .prepare(`
-        UPDATE content
-        SET
-          status = 'ready',
-          updated_at =
-            CURRENT_TIMESTAMP
-        WHERE id = ?
-        AND user_id = ?
-      `)
-      .bind(
-        content.id,
-        auth.session.user.id
-      )
-      .run();
-  }
+  await recalculateContentStatus(
+    env,
+    auth.session.user.id,
+    content.id
+  );
 
   await writeAudit(
     env,
     auth.session.user.id,
     "PUBLICATIONS_CREATED",
     "content",
-    String(content.id),
+    String(
+      content.id
+    ),
     request
   );
 
@@ -930,7 +925,9 @@ export async function updatePublication(
   }
 
   const body =
-    await readJson(request);
+    await readJson(
+      request
+    );
 
   if (!body) {
     return badRequest(
@@ -940,7 +937,8 @@ export async function updatePublication(
   }
 
   const title =
-    body.title !== undefined
+    body.title !==
+      undefined
       ? normalizeString(
           body.title,
           500
@@ -948,7 +946,8 @@ export async function updatePublication(
       : existing.title;
 
   const caption =
-    body.caption !== undefined
+    body.caption !==
+      undefined
       ? normalizeString(
           body.caption,
           5000
@@ -956,7 +955,8 @@ export async function updatePublication(
       : existing.caption;
 
   const description =
-    body.description !== undefined
+    body.description !==
+      undefined
       ? normalizeString(
           body.description,
           10000
@@ -968,12 +968,22 @@ export async function updatePublication(
 
   if (
     body.scheduledAt !==
-    undefined
+      undefined
   ) {
-    scheduledAt =
-      normalizeSchedule(
+    const result =
+      parseSchedule(
         body.scheduledAt
       );
+
+    if (!result.valid) {
+      return badRequest(
+        request,
+        "INVALID_SCHEDULE"
+      );
+    }
+
+    scheduledAt =
+      result.value;
   }
 
   let publishState =
@@ -981,7 +991,7 @@ export async function updatePublication(
 
   if (
     body.publishState !==
-    undefined
+      undefined
   ) {
     const requested =
       normalizeString(
@@ -994,7 +1004,9 @@ export async function updatePublication(
         "draft",
         "ready",
         "queued"
-      ].includes(requested)
+      ].includes(
+        requested
+      )
     ) {
       return badRequest(
         request,
@@ -1004,41 +1016,51 @@ export async function updatePublication(
 
     publishState =
       requested;
-  } else {
-    if (scheduledAt) {
-      publishState =
-        "queued";
-    } else if (
-      publishState ===
+  } else if (
+    scheduledAt
+  ) {
+    publishState =
+      "queued";
+  } else if (
+    publishState ===
       "queued"
-    ) {
-      publishState =
-        "ready";
+  ) {
+    publishState =
+      "ready";
+  }
+
+  if (
+    publishState ===
+      "queued"
+  ) {
+    if (!scheduledAt) {
+      return badRequest(
+        request,
+        "SCHEDULE_REQUIRED"
+      );
     }
-  }
 
-  if (
-    publishState ===
-      "queued" &&
-    !scheduledAt
-  ) {
-    return badRequest(
-      request,
-      "SCHEDULE_REQUIRED"
-    );
-  }
+    if (
+      !Number(
+        existing.connected
+      )
+    ) {
+      return badRequest(
+        request,
+        "ACCOUNT_NOT_CONNECTED"
+      );
+    }
 
-  if (
-    publishState ===
-      "queued" &&
-    !Number(
-      existing.connected
-    )
-  ) {
-    return badRequest(
-      request,
-      "ACCOUNT_NOT_CONNECTED"
-    );
+    if (
+      Date.parse(
+        scheduledAt
+      ) <= Date.now()
+    ) {
+      return badRequest(
+        request,
+        "SCHEDULE_MUST_BE_FUTURE"
+      );
+    }
   }
 
   if (
@@ -1060,8 +1082,19 @@ export async function updatePublication(
         title = ?,
         caption = ?,
         description = ?,
+
         publish_state = ?,
         scheduled_at = ?,
+
+        processing_started_at =
+          NULL,
+
+        next_attempt_at =
+          NULL,
+
+        last_error =
+          NULL,
+
         updated_at =
           CURRENT_TIMESTAMP
 
@@ -1079,12 +1112,20 @@ export async function updatePublication(
     )
     .run();
 
+  await recalculateContentStatus(
+    env,
+    auth.session.user.id,
+    existing.content_id
+  );
+
   await writeAudit(
     env,
     auth.session.user.id,
     "PUBLICATION_UPDATED",
     "publication",
-    String(publicationId),
+    String(
+      publicationId
+    ),
     request
   );
 
@@ -1100,10 +1141,6 @@ export async function updatePublication(
 
 /* =========================================================
    CANCEL PUBLICATION
-
-   We do not physically delete publishing history.
-
-   DELETE means cancel for audit/history purposes.
 ========================================================= */
 
 export async function cancelPublication(
@@ -1126,10 +1163,14 @@ export async function cancelPublication(
       .prepare(`
         SELECT
           id,
+          content_id,
           publish_state
+
         FROM publication_jobs
+
         WHERE id = ?
         AND user_id = ?
+
         LIMIT 1
       `)
       .bind(
@@ -1172,11 +1213,23 @@ export async function cancelPublication(
   await env.DB
     .prepare(`
       UPDATE publication_jobs
+
       SET
         publish_state =
           'cancelled',
+
+        scheduled_at =
+          NULL,
+
+        processing_started_at =
+          NULL,
+
+        next_attempt_at =
+          NULL,
+
         updated_at =
           CURRENT_TIMESTAMP
+
       WHERE id = ?
       AND user_id = ?
     `)
@@ -1186,12 +1239,20 @@ export async function cancelPublication(
     )
     .run();
 
+  await recalculateContentStatus(
+    env,
+    auth.session.user.id,
+    existing.content_id
+  );
+
   await writeAudit(
     env,
     auth.session.user.id,
     "PUBLICATION_CANCELLED",
     "publication",
-    String(publicationId),
+    String(
+      publicationId
+    ),
     request
   );
 
@@ -1209,7 +1270,7 @@ export async function cancelPublication(
    HELPERS
 ========================================================= */
 
-function normalizeSchedule(
+function parseSchedule(
   value
 ) {
   if (
@@ -1217,19 +1278,181 @@ function normalizeSchedule(
     value === null ||
     value === ""
   ) {
-    return null;
+    return {
+      valid: true,
+      value: null
+    };
   }
 
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
 
   if (
     Number.isNaN(
       date.getTime()
     )
   ) {
-    return null;
+    return {
+      valid: false,
+      value: null
+    };
   }
 
-  return date.toISOString();
+  return {
+    valid: true,
+    value:
+      date.toISOString()
+  };
 }
+
+
+async function findActiveDuplicate(
+  env,
+  userId,
+  contentId,
+  socialAccountId
+) {
+  return env.DB
+    .prepare(`
+      SELECT id
+
+      FROM publication_jobs
+
+      WHERE user_id = ?
+      AND content_id = ?
+      AND social_account_id = ?
+
+      AND publish_state IN (
+        'draft',
+        'ready',
+        'queued',
+        'processing',
+        'retrying'
+      )
+
+      LIMIT 1
+    `)
+    .bind(
+      userId,
+      contentId,
+      socialAccountId
+    )
+    .first();
+}
+
+
+async function recalculateContentStatus(
+  env,
+  userId,
+  contentId
+) {
+  const result =
+    await env.DB
+      .prepare(`
+        SELECT
+          publish_state,
+          COUNT(*) AS count
+
+        FROM publication_jobs
+
+        WHERE user_id = ?
+        AND content_id = ?
+
+        GROUP BY
+          publish_state
+      `)
+      .bind(
+        userId,
+        contentId
+      )
+      .all();
+
+  const counts =
+    new Map();
+
+  for (
+    const row
+    of result.results || []
+  ) {
+    counts.set(
+      row.publish_state,
+      Number(
+        row.count || 0
+      )
+    );
+  }
+
+  const totalActive =
+    ACTIVE_STATES.reduce(
+      (
+        total,
+        state
+      ) =>
+        total +
+        (
+          counts.get(
+            state
+          ) || 0
+        ),
+      0
+    );
+
+  const queued =
+    (
+      counts.get(
+        "queued"
+      ) || 0
+    ) +
+    (
+      counts.get(
+        "processing"
+      ) || 0
+    ) +
+    (
+      counts.get(
+        "retrying"
+      ) || 0
+    );
+
+  const published =
+    counts.get(
+      "published"
+    ) || 0;
+
+  let status =
+    "ready";
+
+  if (
+    queued > 0
+  ) {
+    status =
+      "scheduled";
+  } else if (
+    published > 0 &&
+    totalActive === 0
+  ) {
+    status =
+      "published";
+  }
+
+  await env.DB
+    .prepare(`
+      UPDATE content
+
+      SET
+        status = ?,
+        updated_at =
+          CURRENT_TIMESTAMP
+
+      WHERE id = ?
+      AND user_id = ?
+    `)
+    .bind(
+      status,
+      contentId,
+      userId
+    )
+    .run();
+    }
