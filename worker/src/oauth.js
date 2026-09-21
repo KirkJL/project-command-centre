@@ -9,6 +9,7 @@ import {
   decryptSecret
 } from "./security.js";
 
+
 export function requireOAuthSecrets(
   env,
   names
@@ -25,6 +26,25 @@ export function requireOAuthSecrets(
     }
   }
 }
+
+
+export function optionalSecret(
+  env,
+  name
+) {
+  if (
+    typeof env[name] !==
+      "string"
+  ) {
+    return null;
+  }
+
+  const value =
+    env[name].trim();
+
+  return value || null;
+}
+
 
 export function oauthRedirect(
   provider,
@@ -62,6 +82,7 @@ export function oauthRedirect(
   );
 }
 
+
 export async function consumeOAuthState(
   env,
   state,
@@ -92,6 +113,9 @@ export async function consumeOAuthState(
     return null;
   }
 
+  /*
+   * State values are one-use only.
+   */
   await env.DB
     .prepare(`
       DELETE FROM oauth_states
@@ -115,6 +139,7 @@ export async function consumeOAuthState(
   return record;
 }
 
+
 export async function cleanupOAuthStates(
   env
 ) {
@@ -134,6 +159,7 @@ export async function cleanupOAuthStates(
   }
 }
 
+
 export async function saveOAuthCredentials(
   env,
   socialAccountId,
@@ -143,6 +169,19 @@ export async function saveOAuthCredentials(
   expiresAt,
   scope
 ) {
+  requireOAuthSecrets(
+    env,
+    [
+      "TOKEN_ENCRYPTION_KEY"
+    ]
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "ACCESS_TOKEN_REQUIRED"
+    );
+  }
+
   const encryptedAccess =
     await encryptSecret(
       env,
@@ -171,6 +210,11 @@ export async function saveOAuthCredentials(
       .first();
 
   if (existing) {
+    /*
+     * Some providers do not return a new refresh token
+     * every time. If no new refresh token is returned,
+     * preserve the one already stored.
+     */
     if (encryptedRefresh) {
       await env.DB
         .prepare(`
@@ -190,7 +234,7 @@ export async function saveOAuthCredentials(
           encryptedAccess,
           encryptedRefresh,
           expiresAt,
-          scope,
+          scope || "",
           socialAccountId
         )
         .run();
@@ -211,7 +255,7 @@ export async function saveOAuthCredentials(
           provider,
           encryptedAccess,
           expiresAt,
-          scope,
+          scope || "",
           socialAccountId
         )
         .run();
@@ -242,10 +286,11 @@ export async function saveOAuthCredentials(
       encryptedAccess,
       encryptedRefresh,
       expiresAt,
-      scope
+      scope || ""
     )
     .run();
 }
+
 
 export async function getOAuthCredential(
   env,
@@ -271,10 +316,17 @@ export async function getOAuthCredential(
     .first();
 }
 
+
 export async function getValidAccessToken(
   env,
   credential
 ) {
+  if (!credential) {
+    throw new Error(
+      "OAUTH_CREDENTIAL_REQUIRED"
+    );
+  }
+
   const expiresAt =
     credential.expires_at
       ? Date.parse(
@@ -295,18 +347,21 @@ export async function getValidAccessToken(
     );
   }
 
+  /*
+   * Some credentials may not have a known expiry.
+   */
+  if (!expiresAt) {
+    return decryptSecret(
+      env,
+      credential
+        .access_token_encrypted
+    );
+  }
+
   if (
     !credential
       .refresh_token_encrypted
   ) {
-    if (!expiresAt) {
-      return decryptSecret(
-        env,
-        credential
-          .access_token_encrypted
-      );
-    }
-
     throw new Error(
       "OAUTH_REAUTH_REQUIRED"
     );
@@ -337,6 +392,7 @@ export async function getValidAccessToken(
   );
 }
 
+
 async function refreshYouTubeToken(
   env,
   credential
@@ -345,7 +401,6 @@ async function refreshYouTubeToken(
     env,
     [
       "GOOGLE_CLIENT_ID",
-      "GOOGLE_CLIENT_SECRET",
       "TOKEN_ENCRYPTION_KEY"
     ]
   );
@@ -356,6 +411,31 @@ async function refreshYouTubeToken(
       credential
         .refresh_token_encrypted
     );
+
+  const body =
+    new URLSearchParams({
+      client_id:
+        env.GOOGLE_CLIENT_ID,
+
+      refresh_token:
+        refreshToken,
+
+      grant_type:
+        "refresh_token"
+    });
+
+  const googleSecret =
+    optionalSecret(
+      env,
+      "GOOGLE_CLIENT_SECRET"
+    );
+
+  if (googleSecret) {
+    body.set(
+      "client_secret",
+      googleSecret
+    );
+  }
 
   const response =
     await fetch(
@@ -368,20 +448,7 @@ async function refreshYouTubeToken(
             "application/x-www-form-urlencoded"
         },
 
-        body:
-          new URLSearchParams({
-            client_id:
-              env.GOOGLE_CLIENT_ID,
-
-            client_secret:
-              env.GOOGLE_CLIENT_SECRET,
-
-            refresh_token:
-              refreshToken,
-
-            grant_type:
-              "refresh_token"
-          })
+        body
       }
     );
 
@@ -392,6 +459,11 @@ async function refreshYouTubeToken(
     !response.ok ||
     !data.access_token
   ) {
+    console.error(
+      "YouTube token refresh failed:",
+      data?.error || response.status
+    );
+
     throw new Error(
       "YOUTUBE_TOKEN_REFRESH_FAILED"
     );
@@ -413,7 +485,7 @@ async function refreshYouTubeToken(
     credential.social_account_id,
     "youtube",
     data.access_token,
-    null,
+    data.refresh_token || null,
     expiresAt,
     data.scope ||
       credential.scope ||
@@ -422,6 +494,7 @@ async function refreshYouTubeToken(
 
   return data.access_token;
 }
+
 
 async function refreshTikTokToken(
   env,
@@ -478,6 +551,11 @@ async function refreshTikTokToken(
     !response.ok ||
     !data.access_token
   ) {
+    console.error(
+      "TikTok token refresh failed:",
+      data?.error || response.status
+    );
+
     throw new Error(
       "TIKTOK_TOKEN_REFRESH_FAILED"
     );
@@ -508,4 +586,4 @@ async function refreshTikTokToken(
   );
 
   return data.access_token;
-}
+        }
