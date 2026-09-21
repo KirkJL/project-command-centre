@@ -22,9 +22,7 @@ import {
 } from "./projects.js";
 
 import {
-  createSecureToken,
-  createPkceVerifier,
-  createPkceChallenge
+  createSecureToken
 } from "./security.js";
 
 import {
@@ -40,6 +38,11 @@ import {
 import {
   upsertSocialAccount
 } from "./accounts.js";
+
+import {
+  writeAudit
+} from "./audit.js";
+
 
 export async function startTikTokOAuth(
   request,
@@ -77,6 +80,18 @@ export async function startTikTokOAuth(
   const projectId =
     Number(body.projectId);
 
+  if (
+    !Number.isInteger(
+      projectId
+    ) ||
+    projectId <= 0
+  ) {
+    return badRequest(
+      request,
+      "INVALID_PROJECT"
+    );
+  }
+
   try {
     await assertOwnedProject(
       env,
@@ -97,14 +112,11 @@ export async function startTikTokOAuth(
   const state =
     createSecureToken();
 
-  const verifier =
-    createPkceVerifier();
-
-  const challenge =
-    await createPkceChallenge(
-      verifier
-    );
-
+  /*
+   * TikTok web OAuth uses state protection.
+   * PKCE/code_verifier is not required for the web
+   * authorization-code flow.
+   */
   await env.DB
     .prepare(`
       INSERT INTO oauth_states (
@@ -117,14 +129,13 @@ export async function startTikTokOAuth(
       )
       VALUES (
         ?, ?, 'tiktok',
-        ?, ?, ?
+        ?, NULL, ?
       )
     `)
     .bind(
       state,
       auth.session.user.id,
       projectId,
-      verifier,
       new Date(
         Date.now() +
         10 * 60 * 1000
@@ -146,13 +157,7 @@ export async function startTikTokOAuth(
       redirect_uri:
         TIKTOK_REDIRECT_URI,
 
-      state,
-
-      code_challenge:
-        challenge,
-
-      code_challenge_method:
-        "S256"
+      state
     });
 
   return json(
@@ -167,6 +172,7 @@ export async function startTikTokOAuth(
     request
   );
 }
+
 
 export async function finishTikTokOAuth(
   request,
@@ -193,11 +199,20 @@ export async function finishTikTokOAuth(
         500
       );
 
+    const providerDescription =
+      normalizeString(
+        url.searchParams.get(
+          "error_description"
+        ),
+        500
+      );
+
     if (providerError) {
       return oauthRedirect(
         "tiktok",
         false,
-        providerError
+        providerDescription ||
+          providerError
       );
     }
 
@@ -265,10 +280,7 @@ export async function finishTikTokOAuth(
                 "authorization_code",
 
               redirect_uri:
-                TIKTOK_REDIRECT_URI,
-
-              code_verifier:
-                oauthState.code_verifier
+                TIKTOK_REDIRECT_URI
             })
         }
       );
@@ -282,6 +294,13 @@ export async function finishTikTokOAuth(
       !tokenResponse.ok ||
       !tokenData.access_token
     ) {
+      console.error(
+        "TikTok token exchange failed:",
+        tokenData?.error ||
+        tokenData?.error_description ||
+        tokenResponse.status
+      );
+
       return oauthRedirect(
         "tiktok",
         false,
@@ -293,6 +312,8 @@ export async function finishTikTokOAuth(
       await fetch(
         "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name",
         {
+          method: "GET",
+
           headers: {
             Authorization:
               `Bearer ${tokenData.access_token}`
@@ -304,6 +325,19 @@ export async function finishTikTokOAuth(
       await safeJson(
         userResponse
       );
+
+    if (!userResponse.ok) {
+      console.error(
+        "TikTok profile lookup failed:",
+        userData
+      );
+
+      return oauthRedirect(
+        "tiktok",
+        false,
+        "account_lookup_failed"
+      );
+    }
 
     const tiktokUser =
       userData?.data?.user ||
@@ -367,6 +401,15 @@ export async function finishTikTokOAuth(
       tokenData.scope || ""
     );
 
+    await writeAudit(
+      env,
+      oauthState.user_id,
+      "TIKTOK_CONNECTED",
+      "social_account",
+      String(accountId),
+      request
+    );
+
     return oauthRedirect(
       "tiktok",
       true
@@ -384,6 +427,7 @@ export async function finishTikTokOAuth(
     );
   }
 }
+
 
 export async function getTikTokCreatorInfo(
   request,
@@ -465,11 +509,30 @@ export async function getTikTokCreatorInfo(
     );
   }
 
-  const accessToken =
-    await getValidAccessToken(
-      env,
-      credential
+  let accessToken;
+
+  try {
+    accessToken =
+      await getValidAccessToken(
+        env,
+        credential
+      );
+  } catch (error) {
+    console.error(
+      "TikTok access token:",
+      error
     );
+
+    return json(
+      {
+        ok: false,
+        error:
+          "TIKTOK_REAUTH_REQUIRED"
+      },
+      409,
+      request
+    );
+  }
 
   const response =
     await fetch(
@@ -491,9 +554,16 @@ export async function getTikTokCreatorInfo(
     );
 
   const data =
-    await safeJson(response);
+    await safeJson(
+      response
+    );
 
   if (!response.ok) {
+    console.error(
+      "TikTok creator info failed:",
+      data
+    );
+
     return json(
       {
         ok: false,
