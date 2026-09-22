@@ -1,5 +1,14 @@
 "use strict";
 
+import {tasks,library,planner,analytics} from "./workspace.js";
+import {initYouTubeUpload,sendYouTubeChunk,youtubeUploadStatus} from "./youtubeUpload.js";
+import {getAuditLog,changePassword} from "./settings.js";
+import {recurringTasks} from "./recurring.js";
+import {brandGroups,assignBrand} from "./brands.js";
+import {notifications,assistantContext,integrationStatus} from "./foundations.js";
+import {githubRepos,githubIssues} from "./github.js";
+import {libraryDetail} from "./libraryDetail.js";
+
 import {
   ALLOWED_ORIGINS
 } from "./config.js";
@@ -69,7 +78,7 @@ import {
 
 import {
   getTikTokPublishStatus
-} from "./tiktokStatus.js";
+} from "./tiktokstatus.js";
 
 
 export async function handleRequest(
@@ -118,7 +127,7 @@ export async function handleRequest(
       {
         ok: true,
         service: "Project Hub API",
-        version: "3G-B"
+        version: "1.0-candidate"
       },
       200,
       request
@@ -133,7 +142,7 @@ export async function handleRequest(
       {
         ok: true,
         status: "healthy",
-        version: "3G-B"
+        version: "1.0-candidate"
       },
       200,
       request
@@ -377,6 +386,15 @@ export async function handleRequest(
     );
   }
 
+  if(url.pathname==="/api/media/youtube/init"&&request.method==="POST")
+    return initYouTubeUpload(request,env);
+  const youtubeChunkMatch=url.pathname.match(/^\/api\/media\/youtube\/(\d+)\/chunk$/);
+  if(youtubeChunkMatch&&request.method==="PUT")
+    return sendYouTubeChunk(request,env,Number(youtubeChunkMatch[1]));
+  const youtubeStatusMatch=url.pathname.match(/^\/api\/media\/youtube\/(\d+)\/status$/);
+  if(youtubeStatusMatch&&request.method==="GET")
+    return youtubeUploadStatus(request,env,Number(youtubeStatusMatch[1]));
+
 
   /* =======================================================
      IDEAS
@@ -524,6 +542,37 @@ export async function handleRequest(
     );
   }
 
+
+  if (url.pathname === "/api/tasks" && ["GET","POST"].includes(request.method))
+    return tasks(request,env);
+  const taskMatch=url.pathname.match(/^\/api\/tasks\/(\d+)$/);
+  if(taskMatch && request.method==="PATCH")
+    return tasks(request,env,Number(taskMatch[1]));
+  if(url.pathname==="/api/library" && request.method==="GET")return library(request,env);
+  const libraryMatch=url.pathname.match(/^\/api\/library\/(\d+)$/);
+  if(libraryMatch&&["GET","POST"].includes(request.method))
+    return libraryDetail(request,env,Number(libraryMatch[1]));
+  if(url.pathname==="/api/planner" && request.method==="GET")return planner(request,env);
+  if(url.pathname==="/api/analytics" && request.method==="GET")return analytics(request,env);
+  if(url.pathname==="/api/audit" && request.method==="GET")return getAuditLog(request,env);
+  if(url.pathname==="/api/settings/password" && request.method==="POST")return changePassword(request,env);
+  if(url.pathname==="/api/recurring-tasks"&&["GET","POST"].includes(request.method))
+    return recurringTasks(request,env);
+  const recurringMatch=url.pathname.match(/^\/api\/recurring-tasks\/(\d+)$/);
+  if(recurringMatch&&request.method==="PATCH")return recurringTasks(request,env,Number(recurringMatch[1]));
+  if(url.pathname==="/api/brand-groups"&&["GET","POST"].includes(request.method))
+    return brandGroups(request,env);
+  const brandAccountMatch=url.pathname.match(/^\/api\/accounts\/(\d+)\/brand$/);
+  if(brandAccountMatch&&request.method==="PATCH")return assignBrand(request,env,"account",Number(brandAccountMatch[1]));
+  const brandContentMatch=url.pathname.match(/^\/api\/content\/(\d+)\/brand$/);
+  if(brandContentMatch&&request.method==="PATCH")return assignBrand(request,env,"content",Number(brandContentMatch[1]));
+  if(url.pathname==="/api/notifications"&&request.method==="GET")return notifications(request,env);
+  if(url.pathname==="/api/assistant/context"&&request.method==="GET")return assistantContext(request,env);
+  if(url.pathname==="/api/integrations/status"&&request.method==="GET")return integrationStatus(request,env);
+  if(url.pathname==="/api/github/repos"&&["GET","POST"].includes(request.method))
+    return githubRepos(request,env);
+  const githubIssuesMatch=url.pathname.match(/^\/api\/github\/repos\/(\d+)\/issues$/);
+  if(githubIssuesMatch&&request.method==="GET")return githubIssues(request,env,Number(githubIssuesMatch[1]));
 
   /* =======================================================
      404
@@ -784,3 +833,4 @@ async function dashboard(
     request
   );
 }
+
