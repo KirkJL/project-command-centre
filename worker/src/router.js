@@ -1,601 +1,438 @@
 "use strict";
 
-import {tasks,library,planner,analytics} from "./workspace.js";
-import {initYouTubeUpload,sendYouTubeChunk,youtubeUploadStatus} from "./youtubeUpload.js";
-import {getAuditLog,changePassword} from "./settings.js";
-import {recurringTasks} from "./recurring.js";
-import {brandGroups,assignBrand} from "./brands.js";
-import {notifications,assistantContext,integrationStatus} from "./foundations.js";
-import {githubRepos,githubIssues} from "./github.js";
-import {libraryDetail} from "./libraryDetail.js";
-
 import {
-  ALLOWED_ORIGINS
+  TIKTOK_REDIRECT_URI
 } from "./config.js";
 
 import {
   json,
-  handleOptions
+  badRequest,
+  readJson,
+  normalizeString,
+  safeJson
 } from "./http.js";
 
 import {
-  login,
-  logout,
-  me,
-  requireSession
+  requireSession,
+  requireMutation
 } from "./auth.js";
 
 import {
-  getProjects,
-  createProject
+  assertOwnedProject
 } from "./projects.js";
 
 import {
-  getContent,
-  createContent,
-  updateContentStatus
-} from "./content.js";
+  createSecureToken
+} from "./security.js";
 
 import {
-  getIdeas,
-  createIdea
-} from "./ideas.js";
+  requireOAuthSecrets,
+  cleanupOAuthStates,
+  consumeOAuthState,
+  saveOAuthCredentials,
+  getOAuthCredential,
+  getValidAccessToken,
+  oauthRedirect
+} from "./oauth.js";
 
 import {
-  getAccounts,
-  createAccount,
-  disconnectSocialAccount
+  upsertSocialAccount
 } from "./accounts.js";
 
 import {
-  getCalendar
-} from "./calendar.js";
-
-import {
-  startTikTokOAuth,
-  finishTikTokOAuth,
-  getTikTokCreatorInfo
-} from "./tiktok.js";
-
-import {
-  startYouTubeOAuth,
-  finishYouTubeOAuth
-} from "./youtube.js";
-
-import {
-  getPublications,
-  getPublishingData,
-  createPublications,
-  updatePublication,
-  cancelPublication
-} from "./publications.js";
-
-import {
-  initialiseTikTokUpload,
-  completeTikTokUpload,
-  getMediaUploads
-} from "./media.js";
-
-import {
-  getTikTokPublishStatus
-} from "./tiktokstatus.js";
+  writeAudit
+} from "./audit.js";
 
 
-export async function handleRequest(
+export async function startTikTokOAuth(
   request,
-  env,
-  ctx
+  env
 ) {
-  void ctx;
-
-  const url =
-    new URL(request.url);
-
-  const origin =
-    request.headers.get(
-      "Origin"
-    );
-
-  if (
-    origin &&
-    !ALLOWED_ORIGINS.has(origin)
-  ) {
-    return json(
-      {
-        ok: false,
-        error: "ORIGIN_NOT_ALLOWED"
-      },
-      403,
-      request
-    );
-  }
-
-  if (request.method === "OPTIONS") {
-    return handleOptions(request);
-  }
-
-
-  /* =======================================================
-     HEALTH
-  ======================================================= */
-
-  if (
-    url.pathname === "/" &&
-    request.method === "GET"
-  ) {
-    return json(
-      {
-        ok: true,
-        service: "Project Hub API",
-        version: "1.0-candidate"
-      },
-      200,
-      request
-    );
-  }
-
-  if (
-    url.pathname === "/api/health" &&
-    request.method === "GET"
-  ) {
-    return json(
-      {
-        ok: true,
-        status: "healthy",
-        version: "1.0-candidate"
-      },
-      200,
-      request
-    );
-  }
-
-
-  /* =======================================================
-     AUTH
-  ======================================================= */
-
-  if (
-    url.pathname === "/api/auth/login" &&
-    request.method === "POST"
-  ) {
-    return login(
+  const auth =
+    await requireMutation(
       request,
       env
     );
+
+  if (auth.error) {
+    return auth.error;
   }
 
-  if (
-    url.pathname === "/api/auth/logout" &&
-    request.method === "POST"
-  ) {
-    return logout(
+  requireOAuthSecrets(
+    env,
+    [
+      "TIKTOK_CLIENT_KEY",
+      "TIKTOK_CLIENT_SECRET",
+      "TOKEN_ENCRYPTION_KEY"
+    ]
+  );
+
+  const body =
+    await readJson(request);
+
+  if (!body) {
+    return badRequest(
       request,
-      env
+      "INVALID_JSON"
     );
   }
 
+  const projectId =
+    Number(body.projectId);
+
   if (
-    url.pathname === "/api/auth/me" &&
-    request.method === "GET"
+    !Number.isInteger(
+      projectId
+    ) ||
+    projectId <= 0
   ) {
-    return me(
+    return badRequest(
       request,
-      env
+      "INVALID_PROJECT"
     );
   }
 
-
-  /* =======================================================
-     DASHBOARD
-  ======================================================= */
-
-  if (
-    url.pathname === "/api/dashboard" &&
-    request.method === "GET"
-  ) {
-    return dashboard(
-      request,
-      env
-    );
-  }
-
-
-  /* =======================================================
-     PROJECTS
-  ======================================================= */
-
-  if (
-    url.pathname === "/api/projects"
-  ) {
-    if (request.method === "GET") {
-      return getProjects(
-        request,
-        env
-      );
-    }
-
-    if (request.method === "POST") {
-      return createProject(
-        request,
-        env
-      );
-    }
-  }
-
-
-  /* =======================================================
-     CONTENT
-  ======================================================= */
-
-  if (
-    url.pathname === "/api/content"
-  ) {
-    if (request.method === "GET") {
-      return getContent(
-        request,
-        env
-      );
-    }
-
-    if (request.method === "POST") {
-      return createContent(
-        request,
-        env
-      );
-    }
-  }
-
-  const contentStatusMatch =
-    url.pathname.match(
-      /^\/api\/content\/(\d+)\/status$/
-    );
-
-  if (
-    contentStatusMatch &&
-    request.method === "PATCH"
-  ) {
-    return updateContentStatus(
-      request,
+  try {
+    await assertOwnedProject(
       env,
-      Number(contentStatusMatch[1])
+      auth.session.user.id,
+      projectId
+    );
+  } catch {
+    return badRequest(
+      request,
+      "INVALID_PROJECT"
     );
   }
 
-  const publishingDataMatch =
-    url.pathname.match(
-      /^\/api\/content\/(\d+)\/publishing$/
-    );
+  await cleanupOAuthStates(
+    env
+  );
 
-  if (
-    publishingDataMatch &&
-    request.method === "GET"
-  ) {
-    return getPublishingData(
-      request,
-      env,
-      Number(
-        publishingDataMatch[1]
+  const state =
+    createSecureToken();
+
+  /*
+   * TikTok web OAuth uses state protection.
+   * PKCE/code_verifier is not required for the web
+   * authorization-code flow.
+   */
+  await env.DB
+    .prepare(`
+      INSERT INTO oauth_states (
+        id,
+        user_id,
+        provider,
+        project_id,
+        code_verifier,
+        expires_at
       )
-    );
-  }
+      VALUES (
+        ?, ?, 'tiktok',
+        ?, NULL, ?
+      )
+    `)
+    .bind(
+      state,
+      auth.session.user.id,
+      projectId,
+      new Date(
+        Date.now() +
+        10 * 60 * 1000
+      ).toISOString()
+    )
+    .run();
 
+  const params =
+    new URLSearchParams({
+      client_key:
+        env.TIKTOK_CLIENT_KEY,
 
-  /* =======================================================
-     PUBLICATIONS
-  ======================================================= */
+      response_type:
+        "code",
 
-  if (
-    url.pathname === "/api/publications"
-  ) {
-    if (request.method === "GET") {
-      return getPublications(
-        request,
-        env
-      );
-    }
+      scope:
+        "user.info.basic,video.publish",
 
-    if (request.method === "POST") {
-      return createPublications(
-        request,
-        env
-      );
-    }
-  }
+      redirect_uri:
+        TIKTOK_REDIRECT_URI,
 
-  const publicationMatch =
-    url.pathname.match(
-      /^\/api\/publications\/(\d+)$/
-    );
-
-  if (publicationMatch) {
-    const publicationId =
-      Number(publicationMatch[1]);
-
-    if (request.method === "PATCH") {
-      return updatePublication(
-        request,
-        env,
-        publicationId
-      );
-    }
-
-    if (request.method === "DELETE") {
-      return cancelPublication(
-        request,
-        env,
-        publicationId
-      );
-    }
-  }
-
-
-  /* =======================================================
-     MEDIA
-  ======================================================= */
-
-  if (
-    url.pathname === "/api/media" &&
-    request.method === "GET"
-  ) {
-    return getMediaUploads(
-      request,
-      env
-    );
-  }
-
-  if (
-    url.pathname ===
-      "/api/media/tiktok/init" &&
-    request.method === "POST"
-  ) {
-    return initialiseTikTokUpload(
-      request,
-      env
-    );
-  }
-
-  const mediaCompleteMatch =
-    url.pathname.match(
-      /^\/api\/media\/tiktok\/(\d+)\/complete$/
-    );
-
-  if (
-    mediaCompleteMatch &&
-    request.method === "POST"
-  ) {
-    return completeTikTokUpload(
-      request,
-      env,
-      Number(mediaCompleteMatch[1])
-    );
-  }
-
-  const mediaStatusMatch =
-    url.pathname.match(
-      /^\/api\/media\/tiktok\/(\d+)\/status$/
-    );
-
-  if (
-    mediaStatusMatch &&
-    request.method === "GET"
-  ) {
-    return getTikTokPublishStatus(
-      request,
-      env,
-      Number(mediaStatusMatch[1])
-    );
-  }
-
-  if(url.pathname==="/api/media/youtube/init"&&request.method==="POST")
-    return initYouTubeUpload(request,env);
-  const youtubeChunkMatch=url.pathname.match(/^\/api\/media\/youtube\/(\d+)\/chunk$/);
-  if(youtubeChunkMatch&&request.method==="PUT")
-    return sendYouTubeChunk(request,env,Number(youtubeChunkMatch[1]));
-  const youtubeStatusMatch=url.pathname.match(/^\/api\/media\/youtube\/(\d+)\/status$/);
-  if(youtubeStatusMatch&&request.method==="GET")
-    return youtubeUploadStatus(request,env,Number(youtubeStatusMatch[1]));
-
-
-  /* =======================================================
-     IDEAS
-  ======================================================= */
-
-  if (
-    url.pathname === "/api/ideas"
-  ) {
-    if (request.method === "GET") {
-      return getIdeas(
-        request,
-        env
-      );
-    }
-
-    if (request.method === "POST") {
-      return createIdea(
-        request,
-        env
-      );
-    }
-  }
-
-
-  /* =======================================================
-     ACCOUNTS
-  ======================================================= */
-
-  if (
-    url.pathname === "/api/accounts"
-  ) {
-    if (request.method === "GET") {
-      return getAccounts(
-        request,
-        env
-      );
-    }
-
-    if (request.method === "POST") {
-      return createAccount(
-        request,
-        env
-      );
-    }
-  }
-
-  const disconnectMatch =
-    url.pathname.match(
-      /^\/api\/accounts\/(\d+)\/disconnect$/
-    );
-
-  if (
-    disconnectMatch &&
-    request.method === "POST"
-  ) {
-    return disconnectSocialAccount(
-      request,
-      env,
-      Number(disconnectMatch[1])
-    );
-  }
-
-  const creatorInfoMatch =
-    url.pathname.match(
-      /^\/api\/accounts\/(\d+)\/creator-info$/
-    );
-
-  if (
-    creatorInfoMatch &&
-    request.method === "GET"
-  ) {
-    return getTikTokCreatorInfo(
-      request,
-      env,
-      Number(creatorInfoMatch[1])
-    );
-  }
-
-
-  /* =======================================================
-     CALENDAR
-  ======================================================= */
-
-  if (
-    url.pathname === "/api/calendar" &&
-    request.method === "GET"
-  ) {
-    return getCalendar(
-      request,
-      env
-    );
-  }
-
-
-  /* =======================================================
-     TIKTOK OAUTH
-  ======================================================= */
-
-  if (
-    url.pathname ===
-      "/api/oauth/tiktok/start" &&
-    request.method === "POST"
-  ) {
-    return startTikTokOAuth(
-      request,
-      env
-    );
-  }
-
-  if (
-    url.pathname ===
-      "/api/oauth/tiktok/callback" &&
-    request.method === "GET"
-  ) {
-    return finishTikTokOAuth(
-      request,
-      env
-    );
-  }
-
-
-  /* =======================================================
-     YOUTUBE OAUTH
-  ======================================================= */
-
-  if (
-    url.pathname ===
-      "/api/oauth/youtube/start" &&
-    request.method === "POST"
-  ) {
-    return startYouTubeOAuth(
-      request,
-      env
-    );
-  }
-
-  if (
-    url.pathname ===
-      "/api/oauth/youtube/callback" &&
-    request.method === "GET"
-  ) {
-    return finishYouTubeOAuth(
-      request,
-      env
-    );
-  }
-
-
-  if (url.pathname === "/api/tasks" && ["GET","POST"].includes(request.method))
-    return tasks(request,env);
-  const taskMatch=url.pathname.match(/^\/api\/tasks\/(\d+)$/);
-  if(taskMatch && request.method==="PATCH")
-    return tasks(request,env,Number(taskMatch[1]));
-  if(url.pathname==="/api/library" && request.method==="GET")return library(request,env);
-  const libraryMatch=url.pathname.match(/^\/api\/library\/(\d+)$/);
-  if(libraryMatch&&["GET","POST"].includes(request.method))
-    return libraryDetail(request,env,Number(libraryMatch[1]));
-  if(url.pathname==="/api/planner" && request.method==="GET")return planner(request,env);
-  if(url.pathname==="/api/analytics" && request.method==="GET")return analytics(request,env);
-  if(url.pathname==="/api/audit" && request.method==="GET")return getAuditLog(request,env);
-  if(url.pathname==="/api/settings/password" && request.method==="POST")return changePassword(request,env);
-  if(url.pathname==="/api/recurring-tasks"&&["GET","POST"].includes(request.method))
-    return recurringTasks(request,env);
-  const recurringMatch=url.pathname.match(/^\/api\/recurring-tasks\/(\d+)$/);
-  if(recurringMatch&&request.method==="PATCH")return recurringTasks(request,env,Number(recurringMatch[1]));
-  if(url.pathname==="/api/brand-groups"&&["GET","POST"].includes(request.method))
-    return brandGroups(request,env);
-  const brandAccountMatch=url.pathname.match(/^\/api\/accounts\/(\d+)\/brand$/);
-  if(brandAccountMatch&&request.method==="PATCH")return assignBrand(request,env,"account",Number(brandAccountMatch[1]));
-  const brandContentMatch=url.pathname.match(/^\/api\/content\/(\d+)\/brand$/);
-  if(brandContentMatch&&request.method==="PATCH")return assignBrand(request,env,"content",Number(brandContentMatch[1]));
-  if(url.pathname==="/api/notifications"&&request.method==="GET")return notifications(request,env);
-  if(url.pathname==="/api/assistant/context"&&request.method==="GET")return assistantContext(request,env);
-  if(url.pathname==="/api/integrations/status"&&request.method==="GET")return integrationStatus(request,env);
-  if(url.pathname==="/api/github/repos"&&["GET","POST"].includes(request.method))
-    return githubRepos(request,env);
-  const githubIssuesMatch=url.pathname.match(/^\/api\/github\/repos\/(\d+)\/issues$/);
-  if(githubIssuesMatch&&request.method==="GET")return githubIssues(request,env,Number(githubIssuesMatch[1]));
-
-  /* =======================================================
-     404
-  ======================================================= */
+      state
+    });
 
   return json(
     {
-      ok: false,
-      error: "NOT_FOUND"
+      ok: true,
+
+      authorizationUrl:
+        "https://www.tiktok.com/v2/auth/authorize/?" +
+        params.toString()
     },
-    404,
+    200,
     request
   );
 }
 
 
-/* =========================================================
-   DASHBOARD
-========================================================= */
-
-async function dashboard(
+export async function finishTikTokOAuth(
   request,
   env
+) {
+  try {
+    requireOAuthSecrets(
+      env,
+      [
+        "TIKTOK_CLIENT_KEY",
+        "TIKTOK_CLIENT_SECRET",
+        "TOKEN_ENCRYPTION_KEY"
+      ]
+    );
+
+    const url =
+      new URL(request.url);
+
+    const providerError =
+      normalizeString(
+        url.searchParams.get(
+          "error"
+        ),
+        500
+      );
+
+    const providerDescription =
+      normalizeString(
+        url.searchParams.get(
+          "error_description"
+        ),
+        500
+      );
+
+    if (providerError) {
+      return oauthRedirect(
+        "tiktok",
+        false,
+        providerDescription ||
+          providerError
+      );
+    }
+
+    const code =
+      normalizeString(
+        url.searchParams.get(
+          "code"
+        ),
+        4000
+      );
+
+    const state =
+      normalizeString(
+        url.searchParams.get(
+          "state"
+        ),
+        500
+      );
+
+    if (!code || !state) {
+      return oauthRedirect(
+        "tiktok",
+        false,
+        "missing_code_or_state"
+      );
+    }
+
+    const oauthState =
+      await consumeOAuthState(
+        env,
+        state,
+        "tiktok"
+      );
+
+    if (!oauthState) {
+      return oauthRedirect(
+        "tiktok",
+        false,
+        "invalid_or_expired_state"
+      );
+    }
+
+    const tokenResponse =
+      await fetch(
+        "https://open.tiktokapis.com/v2/oauth/token/",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/x-www-form-urlencoded"
+          },
+
+          body:
+            new URLSearchParams({
+              client_key:
+                env.TIKTOK_CLIENT_KEY,
+
+              client_secret:
+                env.TIKTOK_CLIENT_SECRET,
+
+              code,
+
+              grant_type:
+                "authorization_code",
+
+              redirect_uri:
+                TIKTOK_REDIRECT_URI
+            })
+        }
+      );
+
+    const tokenData =
+      await safeJson(
+        tokenResponse
+      );
+
+    if (
+      !tokenResponse.ok ||
+      !tokenData.access_token
+    ) {
+      console.error(
+        "TikTok token exchange failed:",
+        tokenData?.error ||
+        tokenData?.error_description ||
+        tokenResponse.status
+      );
+
+      return oauthRedirect(
+        "tiktok",
+        false,
+        "token_exchange_failed"
+      );
+    }
+
+    const userResponse =
+      await fetch(
+        "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name",
+        {
+          method: "GET",
+
+          headers: {
+            Authorization:
+              `Bearer ${tokenData.access_token}`
+          }
+        }
+      );
+
+    const userData =
+      await safeJson(
+        userResponse
+      );
+
+    if (!userResponse.ok) {
+      console.error(
+        "TikTok profile lookup failed:",
+        userData
+      );
+
+      return oauthRedirect(
+        "tiktok",
+        false,
+        "account_lookup_failed"
+      );
+    }
+
+    const tiktokUser =
+      userData?.data?.user ||
+      {};
+
+    const platformUserId =
+      tokenData.open_id ||
+      tiktokUser.open_id;
+
+    if (!platformUserId) {
+      return oauthRedirect(
+        "tiktok",
+        false,
+        "account_lookup_failed"
+      );
+    }
+
+    const accountId =
+      await upsertSocialAccount(
+        env,
+        {
+          userId:
+            oauthState.user_id,
+
+          projectId:
+            oauthState.project_id,
+
+          platform:
+            "tiktok",
+
+          platformUserId,
+
+          accountName:
+            tiktokUser.display_name ||
+            "TikTok",
+
+          accountHandle:
+            null
+        }
+      );
+
+    const expiresAt =
+      tokenData.expires_in
+        ? new Date(
+            Date.now() +
+            Number(
+              tokenData.expires_in
+            ) *
+              1000
+          ).toISOString()
+        : null;
+
+    await saveOAuthCredentials(
+      env,
+      accountId,
+      "tiktok",
+      tokenData.access_token,
+      tokenData.refresh_token ||
+        null,
+      expiresAt,
+      tokenData.scope || ""
+    );
+
+    await writeAudit(
+      env,
+      oauthState.user_id,
+      "TIKTOK_CONNECTED",
+      "social_account",
+      String(accountId),
+      request
+    );
+
+    return oauthRedirect(
+      "tiktok",
+      true
+    );
+  } catch (error) {
+    console.error(
+      "TikTok callback:",
+      error
+    );
+
+    return oauthRedirect(
+      "tiktok",
+      false,
+      "internal_error"
+    );
+  }
+}
+
+
+export async function getTikTokCreatorInfo(
+  request,
+  env,
+  accountId
 ) {
   const session =
     await requireSession(
@@ -607,230 +444,144 @@ async function dashboard(
     return json(
       {
         ok: false,
-        error: "UNAUTHENTICATED"
+        error:
+          "UNAUTHENTICATED"
       },
       401,
       request
     );
   }
 
-  const user =
-    session.user;
-
-  const [
-    projects,
-    tasks,
-    publications,
-    recentContent,
-    ideas
-  ] = await Promise.all([
-
-    env.DB
+  const account =
+    await env.DB
       .prepare(`
         SELECT
           id,
-          name,
-          slug,
-          project_type,
-          status,
-          accent_colour
-
-        FROM projects
-
-        WHERE user_id = ?
-          AND status != 'archived'
-
-        ORDER BY
-          updated_at DESC
-
-        LIMIT 8
+          platform
+        FROM social_accounts
+        WHERE id = ?
+        AND user_id = ?
+        LIMIT 1
       `)
-      .bind(user.id)
-      .all(),
+      .bind(
+        accountId,
+        session.user.id
+      )
+      .first();
 
+  if (!account) {
+    return json(
+      {
+        ok: false,
+        error:
+          "ACCOUNT_NOT_FOUND"
+      },
+      404,
+      request
+    );
+  }
 
-    env.DB
-      .prepare(`
-        SELECT
-          tasks.id,
-          tasks.title,
-          tasks.status,
-          tasks.priority,
-          tasks.due_at,
+  if (
+    account.platform !==
+    "tiktok"
+  ) {
+    return badRequest(
+      request,
+      "ACCOUNT_IS_NOT_TIKTOK"
+    );
+  }
 
-          projects.name
-            AS project_name
+  const credential =
+    await getOAuthCredential(
+      env,
+      accountId
+    );
 
-        FROM tasks
+  if (!credential) {
+    return json(
+      {
+        ok: false,
+        error:
+          "ACCOUNT_NOT_CONNECTED"
+      },
+      409,
+      request
+    );
+  }
 
-        LEFT JOIN projects
-          ON projects.id =
-             tasks.project_id
+  let accessToken;
 
-        WHERE tasks.user_id = ?
+  try {
+    accessToken =
+      await getValidAccessToken(
+        env,
+        credential
+      );
+  } catch (error) {
+    console.error(
+      "TikTok access token:",
+      error
+    );
 
-          AND tasks.status
-            NOT IN (
-              'done',
-              'cancelled'
-            )
+    return json(
+      {
+        ok: false,
+        error:
+          "TIKTOK_REAUTH_REQUIRED"
+      },
+      409,
+      request
+    );
+  }
 
-        ORDER BY
+  const response =
+    await fetch(
+      "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
+      {
+        method: "POST",
 
-          CASE tasks.priority
-            WHEN 'critical' THEN 1
-            WHEN 'high' THEN 2
-            WHEN 'normal' THEN 3
-            ELSE 4
-          END,
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`,
 
-          tasks.due_at ASC
+          "Content-Type":
+            "application/json; charset=UTF-8"
+        },
 
-        LIMIT 10
-      `)
-      .bind(user.id)
-      .all(),
+        body:
+          JSON.stringify({})
+      }
+    );
 
+  const data =
+    await safeJson(
+      response
+    );
 
-    env.DB
-      .prepare(`
-        SELECT
-          publication_jobs.id,
-          publication_jobs.platform,
-          publication_jobs.publish_state,
-          publication_jobs.scheduled_at,
-          publication_jobs.attempt_count,
-          publication_jobs.last_error,
+  if (!response.ok) {
+    console.error(
+      "TikTok creator info failed:",
+      data
+    );
 
-          content.id
-            AS content_id,
-
-          content.title,
-
-          projects.id
-            AS project_id,
-
-          projects.name
-            AS project_name,
-
-          social_accounts.id
-            AS social_account_id,
-
-          social_accounts.account_name,
-          social_accounts.account_handle
-
-        FROM publication_jobs
-
-        INNER JOIN content
-          ON content.id =
-             publication_jobs.content_id
-
-        INNER JOIN projects
-          ON projects.id =
-             publication_jobs.project_id
-
-        INNER JOIN social_accounts
-          ON social_accounts.id =
-             publication_jobs.social_account_id
-
-        WHERE publication_jobs.user_id = ?
-
-          AND publication_jobs.publish_state
-            IN (
-              'ready',
-              'queued',
-              'processing',
-              'retrying'
-            )
-
-        ORDER BY
-
-          CASE
-            WHEN publication_jobs.scheduled_at
-              IS NULL
-            THEN 1
-            ELSE 0
-          END,
-
-          publication_jobs.scheduled_at ASC,
-          publication_jobs.created_at ASC
-
-        LIMIT 10
-      `)
-      .bind(user.id)
-      .all(),
-
-
-    env.DB
-      .prepare(`
-        SELECT
-          content.id,
-          content.project_id,
-          content.title,
-          content.content_type,
-          content.status,
-          content.updated_at,
-
-          projects.name
-            AS project_name
-
-        FROM content
-
-        INNER JOIN projects
-          ON projects.id =
-             content.project_id
-
-        WHERE content.user_id = ?
-          AND content.status != 'archived'
-
-        ORDER BY
-          content.updated_at DESC
-
-        LIMIT 8
-      `)
-      .bind(user.id)
-      .all(),
-
-
-    env.DB
-      .prepare(`
-        SELECT
-          COUNT(*) AS total
-
-        FROM ideas
-
-        WHERE user_id = ?
-          AND status = 'inbox'
-      `)
-      .bind(user.id)
-      .first()
-  ]);
+    return json(
+      {
+        ok: false,
+        error:
+          "TIKTOK_CREATOR_INFO_FAILED"
+      },
+      502,
+      request
+    );
+  }
 
   return json(
     {
       ok: true,
-
-      user,
-
-      projects:
-        projects.results || [],
-
-      tasks:
-        tasks.results || [],
-
-      publications:
-        publications.results || [],
-
-      recentContent:
-        recentContent.results || [],
-
-      ideaCount:
-        Number(
-          ideas?.total || 0
-        )
+      creatorInfo:
+        data?.data || null
     },
     200,
     request
   );
 }
-
