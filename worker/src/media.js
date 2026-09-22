@@ -17,6 +17,7 @@ import {
   getOAuthCredential,
   getValidAccessToken
 } from "./oauth.js";
+import {brandsMatch} from "./brands.js";
 
 
 const ALLOWED_VIDEO_TYPES = new Set([
@@ -45,12 +46,14 @@ async function getOwnedPublishingContext(
         content.id AS content_id,
         content.project_id,
         content.title AS content_title,
+        content.brand_group_id AS content_brand_group_id,
 
         social_accounts.id AS account_id,
         social_accounts.platform,
         social_accounts.status AS account_status,
         social_accounts.account_name,
         social_accounts.account_handle
+        ,social_accounts.brand_group_id AS account_brand_group_id
 
       FROM content
 
@@ -262,6 +265,8 @@ export async function initialiseTikTokUpload(
       "ACCOUNT_IS_NOT_TIKTOK"
     );
   }
+  if(!brandsMatch(context.content_brand_group_id,context.account_brand_group_id))
+    return badRequest(request,"BRAND_GROUP_MISMATCH");
 
   const credential =
     await getOAuthCredential(
@@ -394,6 +399,33 @@ export async function initialiseTikTokUpload(
   );
 
 
+  // Bind each direct upload to a single owned destination job.
+  let publication = await env.DB.prepare(`
+    SELECT id, publish_state FROM publication_jobs
+    WHERE user_id = ? AND content_id = ? AND social_account_id = ?
+      AND publish_state IN ('draft','ready','queued','failed')
+    ORDER BY id DESC LIMIT 1
+  `).bind(auth.session.user.id, contentId, accountId).first();
+  if (!publication) {
+    const created = await env.DB.prepare(`
+      INSERT INTO publication_jobs
+      (user_id, project_id, content_id, social_account_id, platform,
+       title, caption, publish_state, attempt_count, max_attempts,
+       created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'tiktok', ?, ?, 'ready', 0, 3,
+              CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `).bind(auth.session.user.id, context.project_id, contentId,
+      accountId, context.content_title, caption).run();
+    publication = { id: Number(created.meta.last_row_id) };
+  }
+  const activeUpload = await env.DB.prepare(`
+    SELECT id FROM media_uploads WHERE publication_job_id = ?
+    AND upload_state IN ('initialising','ready_for_upload','processing')
+    LIMIT 1
+  `).bind(publication.id).first();
+  if (activeUpload) return json({ok:false,error:'ACTIVE_UPLOAD_ALREADY_EXISTS',
+    mediaUploadId:activeUpload.id},409,request);
+
   /* ---------------------------------------------------------
      Create local media record
   --------------------------------------------------------- */
@@ -405,6 +437,7 @@ export async function initialiseTikTokUpload(
         project_id,
         content_id,
         social_account_id,
+        publication_job_id,
         platform,
         file_name,
         mime_type,
@@ -412,7 +445,7 @@ export async function initialiseTikTokUpload(
         upload_state
       )
       VALUES (
-        ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
         'tiktok',
         ?, ?, ?,
         'initialising'
@@ -423,6 +456,7 @@ export async function initialiseTikTokUpload(
       context.project_id,
       contentId,
       accountId,
+      publication.id,
       fileName,
       mimeType,
       fileSize
@@ -577,6 +611,7 @@ export async function initialiseTikTokUpload(
       ok: true,
 
       mediaUploadId,
+      publicationId: publication.id,
 
       platform: "tiktok",
 
@@ -651,6 +686,7 @@ export async function completeTikTokUpload(
     .prepare(`
       SELECT
         id,
+        publication_job_id,
         platform,
         platform_upload_id,
         upload_state
@@ -685,6 +721,13 @@ export async function completeTikTokUpload(
       "UPLOAD_IS_NOT_TIKTOK"
     );
   }
+
+  await env.DB.prepare(`
+    UPDATE publication_jobs SET publish_state='processing',
+      processing_started_at=CURRENT_TIMESTAMP,
+      last_error=NULL, updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND user_id=? AND publish_state IN ('ready','failed','draft','queued')
+  `).bind(upload.publication_job_id, auth.session.user.id).run();
 
   await env.DB
     .prepare(`
@@ -751,6 +794,7 @@ export async function getMediaUploads(
     .prepare(`
       SELECT
         media_uploads.id,
+        media_uploads.publication_job_id,
         media_uploads.project_id,
         media_uploads.content_id,
         media_uploads.social_account_id,
