@@ -59,7 +59,7 @@ export async function getCalendar(
 
           social_accounts.account_name
 
-        FROM publications
+        FROM publication_jobs AS publications
 
         INNER JOIN content
           ON content.id =
@@ -76,11 +76,10 @@ export async function getCalendar(
         WHERE content.user_id = ?
 
         AND (
-          publications.scheduled_at
-            IS NOT NULL
-          OR
-          publications.published_at
-            IS NOT NULL
+          (publications.publish_state IN ('queued','retrying','processing')
+            AND publications.scheduled_at IS NOT NULL)
+          OR (publications.publish_state='published'
+            AND publications.published_at IS NOT NULL)
         )
 
         ORDER BY
