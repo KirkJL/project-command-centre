@@ -25,6 +25,7 @@ async function getOwnedUpload(
     .prepare(`
       SELECT
         media_uploads.id,
+        media_uploads.publication_job_id,
         media_uploads.user_id,
         media_uploads.project_id,
         media_uploads.content_id,
@@ -343,6 +344,35 @@ export async function getTikTokPublishStatus(
     )
     .run();
 
+  if (upload.publication_job_id && localState !== "processing") {
+    const externalId = platformPostId || upload.platform_upload_id;
+    const handle = String(upload.account_handle || "").replace(/^@/, "");
+    const postUrl = platformPostId && /^[A-Za-z0-9._]+$/.test(handle)
+      ? `https://www.tiktok.com/@${handle}/video/${encodeURIComponent(platformPostId)}`
+      : null;
+    await env.DB.prepare(`
+      UPDATE publication_jobs SET publish_state=?,
+        external_post_id=COALESCE(?,external_post_id),
+        external_post_url=COALESCE(?,external_post_url),
+        last_error=?, processing_started_at=NULL,
+        published_at=CASE WHEN ?='published' THEN CURRENT_TIMESTAMP ELSE published_at END,
+        updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND user_id=? AND publish_state='processing'
+    `).bind(localState, externalId, postUrl, failReason, localState,
+      upload.publication_job_id, session.user.id).run();
+    if (localState === "published") {
+      const outstanding = await env.DB.prepare(`
+        SELECT COUNT(*) AS n FROM publication_jobs
+        WHERE user_id=? AND content_id=?
+        AND publish_state NOT IN ('published','cancelled')
+      `).bind(session.user.id,upload.content_id).first();
+      if (Number(outstanding?.n || 0) === 0) await env.DB.prepare(`
+        UPDATE content SET status='published',updated_at=CURRENT_TIMESTAMP
+        WHERE id=? AND user_id=?
+      `).bind(upload.content_id,session.user.id).run();
+    }
+  }
+
   const refreshed =
     await getOwnedUpload(
       env,
@@ -371,4 +401,57 @@ export async function getTikTokPublishStatus(
     200,
     request
   );
+}
+
+
+// Cron reconciliation continues after the browser closes.
+export async function reconcileTikTokUploads(env) {
+  const rows = await env.DB.prepare(`
+    SELECT id,user_id,content_id,publication_job_id,social_account_id,
+      platform_upload_id FROM media_uploads
+    WHERE platform='tiktok' AND upload_state='processing'
+      AND platform_upload_id IS NOT NULL ORDER BY updated_at ASC LIMIT 10
+  `).all();
+  let checked=0;
+  for (const upload of rows.results||[]) {
+    try {
+      const credential=await getOAuthCredential(env,upload.social_account_id);
+      if(!credential)continue;
+      const token=await getValidAccessToken(env,credential);
+      const response=await fetch("https://open.tiktokapis.com/v2/post/publish/status/fetch/",{
+        method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json; charset=UTF-8"},
+        body:JSON.stringify({publish_id:upload.platform_upload_id})
+      });
+      const data=await safeJson(response);
+      if(!response.ok||data?.error?.code!=="ok")continue;
+      checked++;
+      const state=normaliseTikTokStatus(data?.data?.status);
+      if(state==="processing")continue;
+      const ids=data?.data?.publicaly_available_post_id;
+      const postId=Array.isArray(ids)&&ids.length?String(ids[0]):null;
+      const fail=state==="failed"?String(data?.data?.fail_reason||"TIKTOK_PUBLISH_FAILED").slice(0,1000):null;
+      await env.DB.prepare(`UPDATE media_uploads SET upload_state=?,platform_post_id=COALESCE(?,platform_post_id),
+        last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND upload_state='processing'`)
+        .bind(state,postId,fail,upload.id).run();
+      if(upload.publication_job_id){
+        const account=await env.DB.prepare("SELECT account_handle FROM social_accounts WHERE id=? AND user_id=?")
+          .bind(upload.social_account_id,upload.user_id).first();
+        const handle=String(account?.account_handle||"").replace(/^@/,"");
+        const url=postId&&/^[A-Za-z0-9._]+$/.test(handle)
+          ?`https://www.tiktok.com/@${handle}/video/${encodeURIComponent(postId)}`:null;
+        await env.DB.prepare(`UPDATE publication_jobs SET publish_state=?,external_post_id=COALESCE(?,external_post_id),
+          external_post_url=COALESCE(?,external_post_url),last_error=?,processing_started_at=NULL,
+          published_at=CASE WHEN ?='published' THEN CURRENT_TIMESTAMP ELSE published_at END,
+          updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND publish_state='processing'`)
+          .bind(state,postId||upload.platform_upload_id,url,fail,state,upload.publication_job_id,upload.user_id).run();
+      }
+      if(state==="published"){
+        const outstanding=await env.DB.prepare(`SELECT COUNT(*) AS n FROM publication_jobs WHERE user_id=? AND content_id=?
+          AND publish_state NOT IN ('published','cancelled')`).bind(upload.user_id,upload.content_id).first();
+        if(Number(outstanding?.n||0)===0)await env.DB.prepare(`UPDATE content SET status='published',updated_at=CURRENT_TIMESTAMP
+          WHERE id=? AND user_id=?`).bind(upload.content_id,upload.user_id).run();
+      }
+    }catch(error){console.error("TikTok reconciliation failed",upload.id,error)}
+  }
+  return checked;
 }
