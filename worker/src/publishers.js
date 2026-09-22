@@ -4,6 +4,7 @@ import {
   getOAuthCredential,
   getValidAccessToken
 } from "./oauth.js";
+import {brandsMatch} from "./brands.js";
 
 
 export class PublicationError extends Error {
@@ -50,6 +51,8 @@ export async function publishJob(
       "SOCIAL_ACCOUNT_REQUIRED"
     );
   }
+  if(!brandsMatch(job.content_brand_group_id,job.account_brand_group_id))
+    throw new PublicationError("BRAND_GROUP_MISMATCH",{blocked:true});
 
   const credential =
     await getOAuthCredential(
