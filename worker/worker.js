@@ -8,6 +8,11 @@ import {
   json
 } from "./src/http.js";
 
+import {reconcileTikTokUploads} from "./src/tiktokstatus.js";
+import {reconcileYouTubeUploads} from "./src/youtubeUpload.js";
+import {processRecurringTasks} from "./src/recurring.js";
+import {collectYouTubeMetrics} from "./src/metrics.js";
+
 import {
   processPublicationQueue
 } from "./src/publicationProcessor.js";
@@ -71,6 +76,10 @@ async function runScheduledTasks(
         Date.now()
     );
 
+    await reconcileTikTokUploads(env);
+    await reconcileYouTubeUploads(env);
+    await processRecurringTasks(env);
+    await collectYouTubeMetrics(env);
     await processPublicationQueue(
       env
     );
