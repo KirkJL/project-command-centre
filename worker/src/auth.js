@@ -63,6 +63,16 @@ export async function login(
     );
   }
 
+  // D1-backed limiter works across Worker instances.
+  const ip=request.headers.get("CF-Connecting-IP")||"unknown";
+  const digest=await crypto.subtle.digest("SHA-256",
+    new TextEncoder().encode(`${ip}|${username}`));
+  const key=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+  const limit=await env.DB.prepare(`SELECT attempts,window_started_at FROM login_limits WHERE key=?`)
+    .bind(key).first();
+  if(limit&&Number(limit.attempts)>=5&&Date.now()-Date.parse(limit.window_started_at)<15*60*1000)
+    return json({ok:false,error:"TOO_MANY_LOGIN_ATTEMPTS"},429,request);
+
   const user =
     await env.DB
       .prepare(`
@@ -79,6 +89,7 @@ export async function login(
       .first();
 
   if (!user) {
+    await recordFailedLogin(env,key);
     await delayFailure();
 
     return json(
@@ -99,6 +110,7 @@ export async function login(
     );
 
   if (!valid) {
+    await recordFailedLogin(env,key);
     await delayFailure();
 
     return json(
@@ -111,6 +123,8 @@ export async function login(
       request
     );
   }
+
+  await env.DB.prepare("DELETE FROM login_limits WHERE key=?").bind(key).run();
 
   const sessionId =
     crypto.randomUUID();
@@ -373,4 +387,12 @@ export async function requireMutation(
   return {
     session
   };
+}
+
+async function recordFailedLogin(env,key){
+  await env.DB.prepare(`INSERT INTO login_limits(key,attempts,window_started_at)
+    VALUES (?,1,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET
+    attempts=CASE WHEN datetime(window_started_at)<=datetime('now','-15 minutes') THEN 1 ELSE attempts+1 END,
+    window_started_at=CASE WHEN datetime(window_started_at)<=datetime('now','-15 minutes') THEN CURRENT_TIMESTAMP ELSE window_started_at END`)
+    .bind(key).run();
 }
