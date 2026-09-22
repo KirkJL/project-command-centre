@@ -16,6 +16,7 @@ import {
 import {
   writeAudit
 } from "./audit.js";
+import {brandsMatch} from "./brands.js";
 
 
 const PUBLICATION_STATES =
@@ -488,7 +489,8 @@ export async function createPublications(
           project_id,
           title,
           description,
-          status
+          status,
+          brand_group_id
 
         FROM content
 
@@ -578,6 +580,7 @@ export async function createPublications(
             social_accounts.id,
             social_accounts.platform,
             social_accounts.project_id,
+            social_accounts.brand_group_id,
 
             CASE
               WHEN oauth_credentials.id
@@ -623,6 +626,8 @@ export async function createPublications(
         "ACCOUNT_PROJECT_MISMATCH"
       );
     }
+    if(!brandsMatch(content.brand_group_id,account.brand_group_id))
+      return badRequest(request,"BRAND_GROUP_MISMATCH");
 
     const requestedState =
       normalizeString(
