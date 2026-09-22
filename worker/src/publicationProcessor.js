@@ -247,9 +247,11 @@ async function claimJob(
         social_accounts.account_name,
         social_accounts.account_handle,
         social_accounts.platform_user_id,
+        social_accounts.brand_group_id AS account_brand_group_id,
 
         content.title
           AS content_title,
+        content.brand_group_id AS content_brand_group_id,
 
         content.description
           AS content_description
@@ -595,6 +597,16 @@ async function recoverStaleJobs(
 
         WHERE publish_state =
           'processing'
+        AND NOT EXISTS (
+          SELECT 1 FROM media_uploads m
+          WHERE m.publication_job_id=publication_jobs.id
+          AND m.upload_state='processing'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM youtube_uploads y
+          WHERE y.publication_job_id=publication_jobs.id
+          AND y.upload_state IN ('ready','sending','uploading','processing')
+        )
 
         AND processing_started_at
           IS NOT NULL
