@@ -3,6 +3,9 @@ import {json,badRequest,readJson,normalizeString,safeJson} from "./http.js";
 import {requireSession,requireMutation} from "./auth.js";
 
 const NAME=/^[A-Za-z0-9_.-]{1,100}$/;
+function forUser(env,userId){
+  return {...env,GITHUB_TOKEN:String(env.GITHUB_TOKEN_USER_ID||"")===String(userId)?env.GITHUB_TOKEN:undefined};
+}
 async function githubFetch(env,path){
   const headers={Accept:"application/vnd.github+json","User-Agent":"Project-Hub"};
   if(env.GITHUB_TOKEN)headers.Authorization=`Bearer ${env.GITHUB_TOKEN}`;
@@ -13,6 +16,7 @@ export async function githubRepos(request,env){
   if(auth.error)return auth.error;
   if(!auth.session)return json({ok:false,error:"UNAUTHENTICATED"},401,request);
   const userId=auth.session.user.id;
+  env=forUser(env,userId);
   if(request.method==="GET"){
     const rows=await env.DB.prepare(`SELECT r.id,r.project_id,r.owner,r.repo,p.name AS project_name
       FROM project_github_repos r JOIN projects p ON p.id=r.project_id
@@ -39,6 +43,7 @@ export async function githubRepos(request,env){
 export async function githubIssues(request,env,id){
   const session=await requireSession(request,env);
   if(!session)return json({ok:false,error:"UNAUTHENTICATED"},401,request);
+  env=forUser(env,session.user.id);
   const row=await env.DB.prepare("SELECT owner,repo FROM project_github_repos WHERE id=? AND user_id=?")
     .bind(id,session.user.id).first();
   if(!row)return json({ok:false,error:"REPOSITORY_NOT_FOUND"},404,request);

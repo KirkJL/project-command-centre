@@ -6,7 +6,7 @@ export const ALLOWED_ORIGINS =
   ]);
 
 export const FRONTEND_URL =
-  "https://kirkjl.github.io/project-command-centre/";
+  "https://project-hub-api.kirkjlemon.workers.dev/";
 
 export const TIKTOK_REDIRECT_URI =
   "https://project-hub-api.kirkjlemon.workers.dev/api/oauth/tiktok/callback";

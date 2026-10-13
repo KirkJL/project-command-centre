@@ -19,7 +19,8 @@
     projects: "Projects",
     ideas: "Ideas",
     accounts: "Accounts",
-    analytics: "Analytics"
+    analytics: "Analytics",
+    workspace: "Workspace"
   };
 
 
@@ -503,8 +504,12 @@
           await renderAccounts();
           break;
 
+        case "workspace":
+          await window.renderWorkspace(page, state.projects, state.activeProjectId);
+          break;
+
         case "analytics":
-          renderAnalytics();
+          await window.renderWorkspace(page, state.projects, state.activeProjectId, "analytics");
           break;
 
         default:
@@ -688,11 +693,13 @@
 
     const [
       data,
-      publicationData
+      publicationData,
+      taskData
     ] =
       await Promise.all([
         API.dashboard(),
-        API.publications()
+        API.publications(),
+        API.request("/api/tasks")
       ]);
 
 
@@ -702,9 +709,7 @@
 
 
     const projects =
-      filterProject(
-        data.projects || []
-      );
+      (data.projects || []).filter(project => !state.activeProjectId || Number(project.id) === Number(state.activeProjectId));
 
 
     const content =
@@ -782,6 +787,20 @@
       )
     );
 
+
+    const taskPanel = panel("Your tasks", "Plan the work that matters today");
+    const openTasks = filterProject(taskData.tasks || []).filter(t => !["done","cancelled"].includes(t.status));
+    if (!state.projects.length) {
+      taskPanel.appendChild(el("p", "muted-text", "Start by creating a project, then add your first task."));
+      taskPanel.appendChild(button("Create your first project", "primary-button", () => document.getElementById("projectDialog").showModal()));
+    } else {
+      taskPanel.appendChild(el("p", "muted-text", `${openTasks.length} open task${openTasks.length === 1 ? "" : "s"}`));
+      for (const task of openTasks.slice(0,5)) {
+        taskPanel.appendChild(el("p", "", `${task.title} ? ${pretty(task.priority)}${task.due_at ? " ? " + formatDateTime(task.due_at) : ""}`));
+      }
+      taskPanel.appendChild(button("Manage tasks", "primary-button", () => setRoute("workspace")));
+    }
+    page.appendChild(taskPanel);
 
     const stats =
       el(
@@ -4579,30 +4598,6 @@
      ANALYTICS
   ====================================================== */
 
-  function renderAnalytics() {
-    clear(
-      page
-    );
-
-
-    page.appendChild(
-      createPageHeader(
-        "PERFORMANCE",
-        "Analytics",
-        "Publishing comes first. Performance data comes next."
-      )
-    );
-
-
-    page.appendChild(
-      emptyState(
-        "Analytics isn't wired yet",
-        "Once posts are being published through Project Hub, we'll bring performance back into this dashboard."
-      )
-    );
-  }
-
-
   /* ======================================================
      COMMON PUBLICATION ROW
   ====================================================== */
@@ -6068,6 +6063,11 @@
         "App startup failed:",
         error
       );
+      if (error.status !== 401) {
+        clear(page);
+        page.appendChild(emptyState("Could not connect", "Check your connection and try again."));
+        page.appendChild(button("Retry", "primary-button", start));
+      }
     }
   }
 

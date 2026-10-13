@@ -2895,3 +2895,16 @@ dialog::backdrop {
     min-width: 180px;
   }
 }
+
+/* Account access */
+.login-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-shell { width: min(100%, 440px); }
+.login-card { padding: clamp(24px, 5vw, 40px); border: 1px solid var(--border); border-radius: 20px; background: #11151e; box-shadow: 0 24px 80px #0005; }
+.login-card h1 { margin: 24px 0 12px; font-size: 2rem; }
+.login-card .muted { color: var(--muted, #a5aec0); }
+.login-form { display: grid; gap: 18px; margin: 28px 0 16px; }
+.login-form label { display: grid; gap: 8px; font-size: .9rem; }
+.login-form input { width: 100%; min-height: 46px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: #090b10; color: inherit; }
+.login-form input:focus-visible { outline: 2px solid #b5aaff; outline-offset: 2px; }
+.error-message { color: #ff9ba7; }
+.login-form button:disabled { opacity: .6; cursor: wait; }

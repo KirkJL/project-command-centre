@@ -439,6 +439,9 @@
   ========================================================= */
 
   const client = {
+    request,
+    register(data) { return request("/api/auth/register", {method:"POST",body:data}); },
+
 
     login(
       username,

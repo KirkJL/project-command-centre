@@ -88,41 +88,11 @@ export async function consumeOAuthState(
   state,
   provider
 ) {
-  const record =
-    await env.DB
-      .prepare(`
-        SELECT
-          id,
-          user_id,
-          provider,
-          project_id,
-          code_verifier,
-          expires_at
-        FROM oauth_states
-        WHERE id = ?
-        AND provider = ?
-        LIMIT 1
-      `)
-      .bind(
-        state,
-        provider
-      )
-      .first();
-
-  if (!record) {
-    return null;
-  }
-
-  /*
-   * State values are one-use only.
-   */
-  await env.DB
-    .prepare(`
-      DELETE FROM oauth_states
-      WHERE id = ?
-    `)
-    .bind(state)
-    .run();
+  const record = await env.DB.prepare(`
+    DELETE FROM oauth_states WHERE id = ? AND provider = ?
+    RETURNING id, user_id, provider, project_id, code_verifier, expires_at
+  `).bind(state, provider).first();
+  if (!record) return null;
 
   const expiry =
     Date.parse(

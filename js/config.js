@@ -18,5 +18,7 @@
 
 window.APP_CONFIG = Object.freeze({
   API_BASE_URL:
-    "https://project-hub-api.kirkjlemon.workers.dev"
+    window.location.hostname !== "kirkjl.github.io"
+      ? window.location.origin
+      : "https://project-hub-api.kirkjlemon.workers.dev"
 });

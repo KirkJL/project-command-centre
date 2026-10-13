@@ -1,587 +1,92 @@
-"use strict";
+import { ALLOWED_ORIGINS } from "./config.js";
+import { json, handleOptions } from "./http.js";
+import { register } from "./registration.js";
+import { login, logout, me } from "./auth.js";
+import { dashboard } from "./dashboard.js";
+import { getProjects, createProject } from "./projects.js";
+import { getContent, createContent, updateContentStatus } from "./content.js";
+import { getIdeas, createIdea } from "./ideas.js";
+import { getAccounts, createAccount, disconnectSocialAccount } from "./accounts.js";
+import { getCalendar } from "./calendar.js";
+import { getPublications, getPublishingData, createPublications, updatePublication, cancelPublication } from "./publications.js";
+import { startTikTokOAuth, finishTikTokOAuth, getTikTokCreatorInfo } from "./tiktok.js";
+import { startYouTubeOAuth, finishYouTubeOAuth } from "./youtube.js";
+import { initialiseTikTokUpload, completeTikTokUpload, getMediaUploads } from "./media.js";
+import { getTikTokPublishStatus } from "./tiktokstatus.js";
+import { initYouTubeUpload, sendYouTubeChunk, youtubeUploadStatus } from "./youtubeUpload.js";
+import { tasks, library, planner, analytics } from "./workspace.js";
+import { recurringTasks } from "./recurring.js";
+import { brandGroups, assignBrand } from "./brands.js";
+import { libraryDetail } from "./libraryDetail.js";
+import { githubRepos, githubIssues } from "./github.js";
+import { notifications, assistantContext, integrationStatus } from "./foundations.js";
+import { getAuditLog, changePassword } from "./settings.js";
 
-import {
-  TIKTOK_REDIRECT_URI
-} from "./config.js";
+// Each route explicitly lists its allowed methods. Handlers enforce ownership and CSRF.
+const routes = [
+  ["/api/health", {GET: r => json({ok:true},200,r)}],
+  ["/api/auth/login", {POST:login}],
+  ["/api/auth/register", {POST:register}],
+  ["/api/auth/logout", {POST:logout}],
+  ["/api/auth/me", {GET:me}],
+  ["/api/dashboard", {GET:dashboard}],
+  ["/api/projects", {GET:getProjects,POST:createProject}],
+  ["/api/content", {GET:getContent,POST:createContent}],
+  [/^\/api\/content\/(\d+)\/status$/, {PATCH:updateContentStatus}],
+  [/^\/api\/content\/(\d+)\/publishing$/, {GET:getPublishingData}],
+  ["/api/ideas", {GET:getIdeas,POST:createIdea}],
+  ["/api/accounts", {GET:getAccounts,POST:createAccount}],
+  [/^\/api\/accounts\/(\d+)\/disconnect$/, {POST:disconnectSocialAccount}],
+  [/^\/api\/accounts\/(\d+)\/creator-info$/, {GET:getTikTokCreatorInfo}],
+  ["/api/calendar", {GET:getCalendar}],
+  ["/api/publications", {GET:getPublications,POST:createPublications}],
+  [/^\/api\/publications\/(\d+)$/, {PATCH:updatePublication,DELETE:cancelPublication}],
+  ["/api/oauth/tiktok/start", {POST:startTikTokOAuth}],
+  ["/api/oauth/tiktok/callback", {GET:finishTikTokOAuth}],
+  ["/api/oauth/youtube/start", {POST:startYouTubeOAuth}],
+  ["/api/oauth/youtube/callback", {GET:finishYouTubeOAuth}],
+  ["/api/media", {GET:getMediaUploads}],
+  ["/api/media/tiktok/init", {POST:initialiseTikTokUpload}],
+  [/^\/api\/media\/tiktok\/(\d+)\/complete$/, {POST:completeTikTokUpload}],
+  [/^\/api\/media\/tiktok\/(\d+)\/status$/, {GET:getTikTokPublishStatus}],
+  ["/api/media/youtube/init", {POST:initYouTubeUpload}],
+  [/^\/api\/media\/youtube\/(\d+)\/chunk$/, {PUT:sendYouTubeChunk}],
+  [/^\/api\/media\/youtube\/(\d+)\/status$/, {GET:youtubeUploadStatus}],
+  ["/api/tasks", {GET:tasks,POST:tasks}],
+  [/^\/api\/tasks\/(\d+)$/, {PATCH:tasks}],
+  ["/api/recurring-tasks", {GET:recurringTasks,POST:recurringTasks}],
+  [/^\/api\/recurring-tasks\/(\d+)$/, {PATCH:recurringTasks}],
+  ["/api/library", {GET:library}],
+  [/^\/api\/library\/(\d+)$/, {GET:libraryDetail,POST:libraryDetail}],
+  ["/api/planner", {GET:planner}],
+  ["/api/analytics", {GET:analytics}],
+  ["/api/brands", {GET:brandGroups,POST:brandGroups}],
+  [/^\/api\/accounts\/(\d+)\/brand$/, {PATCH:(r,e,id)=>assignBrand(r,e,"account",id)}],
+  [/^\/api\/content\/(\d+)\/brand$/, {PATCH:(r,e,id)=>assignBrand(r,e,"content",id)}],
+  ["/api/github/repos", {GET:githubRepos,POST:githubRepos}],
+  [/^\/api\/github\/repos\/(\d+)\/issues$/, {GET:githubIssues}],
+  ["/api/notifications", {GET:notifications}],
+  ["/api/assistant/context", {GET:assistantContext}],
+  ["/api/integrations", {GET:integrationStatus}],
+  ["/api/settings/audit", {GET:getAuditLog}],
+  ["/api/settings/password", {POST:changePassword}]
+];
 
-import {
-  json,
-  badRequest,
-  readJson,
-  normalizeString,
-  safeJson
-} from "./http.js";
-
-import {
-  requireSession,
-  requireMutation
-} from "./auth.js";
-
-import {
-  assertOwnedProject
-} from "./projects.js";
-
-import {
-  createSecureToken
-} from "./security.js";
-
-import {
-  requireOAuthSecrets,
-  cleanupOAuthStates,
-  consumeOAuthState,
-  saveOAuthCredentials,
-  getOAuthCredential,
-  getValidAccessToken,
-  oauthRedirect
-} from "./oauth.js";
-
-import {
-  upsertSocialAccount
-} from "./accounts.js";
-
-import {
-  writeAudit
-} from "./audit.js";
-
-
-export async function startTikTokOAuth(
-  request,
-  env
-) {
-  const auth =
-    await requireMutation(
-      request,
-      env
-    );
-
-  if (auth.error) {
-    return auth.error;
+export async function handleRequest(request, env) {
+  const url = new URL(request.url);
+  if (request.method === "OPTIONS") return handleOptions(request);
+  const origin = request.headers.get("Origin");
+  if (origin && !ALLOWED_ORIGINS.has(origin) && origin !== url.origin) {
+    return json({ok:false,error:"ORIGIN_NOT_ALLOWED"},403,request);
   }
-
-  requireOAuthSecrets(
-    env,
-    [
-      "TIKTOK_CLIENT_KEY",
-      "TIKTOK_CLIENT_SECRET",
-      "TOKEN_ENCRYPTION_KEY"
-    ]
-  );
-
-  const body =
-    await readJson(request);
-
-  if (!body) {
-    return badRequest(
-      request,
-      "INVALID_JSON"
-    );
+  for (const [pattern, methods] of routes) {
+    const match = typeof pattern === "string" ? (url.pathname === pattern ? [] : null) : url.pathname.match(pattern);
+    if (!match) continue;
+    const handler = methods[request.method];
+    if (!handler) return json({ok:false,error:"METHOD_NOT_ALLOWED"},405,request,{Allow:Object.keys(methods).join(", ")});
+    const id = match[1] === undefined ? undefined : Number(match[1]);
+    if (id !== undefined && (!Number.isSafeInteger(id) || id < 1)) return json({ok:false,error:"INVALID_ID"},400,request);
+    return handler(request,env,id);
   }
-
-  const projectId =
-    Number(body.projectId);
-
-  if (
-    !Number.isInteger(
-      projectId
-    ) ||
-    projectId <= 0
-  ) {
-    return badRequest(
-      request,
-      "INVALID_PROJECT"
-    );
-  }
-
-  try {
-    await assertOwnedProject(
-      env,
-      auth.session.user.id,
-      projectId
-    );
-  } catch {
-    return badRequest(
-      request,
-      "INVALID_PROJECT"
-    );
-  }
-
-  await cleanupOAuthStates(
-    env
-  );
-
-  const state =
-    createSecureToken();
-
-  /*
-   * TikTok web OAuth uses state protection.
-   * PKCE/code_verifier is not required for the web
-   * authorization-code flow.
-   */
-  await env.DB
-    .prepare(`
-      INSERT INTO oauth_states (
-        id,
-        user_id,
-        provider,
-        project_id,
-        code_verifier,
-        expires_at
-      )
-      VALUES (
-        ?, ?, 'tiktok',
-        ?, NULL, ?
-      )
-    `)
-    .bind(
-      state,
-      auth.session.user.id,
-      projectId,
-      new Date(
-        Date.now() +
-        10 * 60 * 1000
-      ).toISOString()
-    )
-    .run();
-
-  const params =
-    new URLSearchParams({
-      client_key:
-        env.TIKTOK_CLIENT_KEY,
-
-      response_type:
-        "code",
-
-      scope:
-        "user.info.basic,video.publish",
-
-      redirect_uri:
-        TIKTOK_REDIRECT_URI,
-
-      state
-    });
-
-  return json(
-    {
-      ok: true,
-
-      authorizationUrl:
-        "https://www.tiktok.com/v2/auth/authorize/?" +
-        params.toString()
-    },
-    200,
-    request
-  );
-}
-
-
-export async function finishTikTokOAuth(
-  request,
-  env
-) {
-  try {
-    requireOAuthSecrets(
-      env,
-      [
-        "TIKTOK_CLIENT_KEY",
-        "TIKTOK_CLIENT_SECRET",
-        "TOKEN_ENCRYPTION_KEY"
-      ]
-    );
-
-    const url =
-      new URL(request.url);
-
-    const providerError =
-      normalizeString(
-        url.searchParams.get(
-          "error"
-        ),
-        500
-      );
-
-    const providerDescription =
-      normalizeString(
-        url.searchParams.get(
-          "error_description"
-        ),
-        500
-      );
-
-    if (providerError) {
-      return oauthRedirect(
-        "tiktok",
-        false,
-        providerDescription ||
-          providerError
-      );
-    }
-
-    const code =
-      normalizeString(
-        url.searchParams.get(
-          "code"
-        ),
-        4000
-      );
-
-    const state =
-      normalizeString(
-        url.searchParams.get(
-          "state"
-        ),
-        500
-      );
-
-    if (!code || !state) {
-      return oauthRedirect(
-        "tiktok",
-        false,
-        "missing_code_or_state"
-      );
-    }
-
-    const oauthState =
-      await consumeOAuthState(
-        env,
-        state,
-        "tiktok"
-      );
-
-    if (!oauthState) {
-      return oauthRedirect(
-        "tiktok",
-        false,
-        "invalid_or_expired_state"
-      );
-    }
-
-    const tokenResponse =
-      await fetch(
-        "https://open.tiktokapis.com/v2/oauth/token/",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/x-www-form-urlencoded"
-          },
-
-          body:
-            new URLSearchParams({
-              client_key:
-                env.TIKTOK_CLIENT_KEY,
-
-              client_secret:
-                env.TIKTOK_CLIENT_SECRET,
-
-              code,
-
-              grant_type:
-                "authorization_code",
-
-              redirect_uri:
-                TIKTOK_REDIRECT_URI
-            })
-        }
-      );
-
-    const tokenData =
-      await safeJson(
-        tokenResponse
-      );
-
-    if (
-      !tokenResponse.ok ||
-      !tokenData.access_token
-    ) {
-      console.error(
-        "TikTok token exchange failed:",
-        tokenData?.error ||
-        tokenData?.error_description ||
-        tokenResponse.status
-      );
-
-      return oauthRedirect(
-        "tiktok",
-        false,
-        "token_exchange_failed"
-      );
-    }
-
-    const userResponse =
-      await fetch(
-        "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name",
-        {
-          method: "GET",
-
-          headers: {
-            Authorization:
-              `Bearer ${tokenData.access_token}`
-          }
-        }
-      );
-
-    const userData =
-      await safeJson(
-        userResponse
-      );
-
-    if (!userResponse.ok) {
-      console.error(
-        "TikTok profile lookup failed:",
-        userData
-      );
-
-      return oauthRedirect(
-        "tiktok",
-        false,
-        "account_lookup_failed"
-      );
-    }
-
-    const tiktokUser =
-      userData?.data?.user ||
-      {};
-
-    const platformUserId =
-      tokenData.open_id ||
-      tiktokUser.open_id;
-
-    if (!platformUserId) {
-      return oauthRedirect(
-        "tiktok",
-        false,
-        "account_lookup_failed"
-      );
-    }
-
-    const accountId =
-      await upsertSocialAccount(
-        env,
-        {
-          userId:
-            oauthState.user_id,
-
-          projectId:
-            oauthState.project_id,
-
-          platform:
-            "tiktok",
-
-          platformUserId,
-
-          accountName:
-            tiktokUser.display_name ||
-            "TikTok",
-
-          accountHandle:
-            null
-        }
-      );
-
-    const expiresAt =
-      tokenData.expires_in
-        ? new Date(
-            Date.now() +
-            Number(
-              tokenData.expires_in
-            ) *
-              1000
-          ).toISOString()
-        : null;
-
-    await saveOAuthCredentials(
-      env,
-      accountId,
-      "tiktok",
-      tokenData.access_token,
-      tokenData.refresh_token ||
-        null,
-      expiresAt,
-      tokenData.scope || ""
-    );
-
-    await writeAudit(
-      env,
-      oauthState.user_id,
-      "TIKTOK_CONNECTED",
-      "social_account",
-      String(accountId),
-      request
-    );
-
-    return oauthRedirect(
-      "tiktok",
-      true
-    );
-  } catch (error) {
-    console.error(
-      "TikTok callback:",
-      error
-    );
-
-    return oauthRedirect(
-      "tiktok",
-      false,
-      "internal_error"
-    );
-  }
-}
-
-
-export async function getTikTokCreatorInfo(
-  request,
-  env,
-  accountId
-) {
-  const session =
-    await requireSession(
-      request,
-      env
-    );
-
-  if (!session) {
-    return json(
-      {
-        ok: false,
-        error:
-          "UNAUTHENTICATED"
-      },
-      401,
-      request
-    );
-  }
-
-  const account =
-    await env.DB
-      .prepare(`
-        SELECT
-          id,
-          platform
-        FROM social_accounts
-        WHERE id = ?
-        AND user_id = ?
-        LIMIT 1
-      `)
-      .bind(
-        accountId,
-        session.user.id
-      )
-      .first();
-
-  if (!account) {
-    return json(
-      {
-        ok: false,
-        error:
-          "ACCOUNT_NOT_FOUND"
-      },
-      404,
-      request
-    );
-  }
-
-  if (
-    account.platform !==
-    "tiktok"
-  ) {
-    return badRequest(
-      request,
-      "ACCOUNT_IS_NOT_TIKTOK"
-    );
-  }
-
-  const credential =
-    await getOAuthCredential(
-      env,
-      accountId
-    );
-
-  if (!credential) {
-    return json(
-      {
-        ok: false,
-        error:
-          "ACCOUNT_NOT_CONNECTED"
-      },
-      409,
-      request
-    );
-  }
-
-  let accessToken;
-
-  try {
-    accessToken =
-      await getValidAccessToken(
-        env,
-        credential
-      );
-  } catch (error) {
-    console.error(
-      "TikTok access token:",
-      error
-    );
-
-    return json(
-      {
-        ok: false,
-        error:
-          "TIKTOK_REAUTH_REQUIRED"
-      },
-      409,
-      request
-    );
-  }
-
-  const response =
-    await fetch(
-      "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
-      {
-        method: "POST",
-
-        headers: {
-          Authorization:
-            `Bearer ${accessToken}`,
-
-          "Content-Type":
-            "application/json; charset=UTF-8"
-        },
-
-        body:
-          JSON.stringify({})
-      }
-    );
-
-  const data =
-    await safeJson(
-      response
-    );
-
-  if (!response.ok) {
-    console.error(
-      "TikTok creator info failed:",
-      data
-    );
-
-    return json(
-      {
-        ok: false,
-        error:
-          "TIKTOK_CREATOR_INFO_FAILED"
-      },
-      502,
-      request
-    );
-  }
-
-  return json(
-    {
-      ok: true,
-      creatorInfo:
-        data?.data || null
-    },
-    200,
-    request
-  );
+  return json({ok:false,error:"NOT_FOUND"},404,request);
 }

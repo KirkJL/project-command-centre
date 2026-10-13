@@ -46,7 +46,7 @@ export async function tasks(request,env,id=null){
     if(!row)return json({ok:false,error:"TASK_NOT_FOUND"},404,request);
     const nextTitle=body.title===undefined?row.title:title;
     if(!nextTitle)return badRequest(request,"TITLE_REQUIRED");
-    const result=await env.DB.prepare(`UPDATE tasks SET title=?,status=?,priority=?,due_at=? WHERE id=? AND user_id=?`)
+    const result=await env.DB.prepare(`UPDATE tasks SET title=?,status=?,priority=?,due_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?`)
       .bind(nextTitle,body.status===undefined?row.status:status,body.priority===undefined?row.priority:priority,
         body.dueAt===undefined?row.due_at:dueAt,id,userId).run();
     await writeAudit(env,userId,"TASK_UPDATED","task",String(id),request);

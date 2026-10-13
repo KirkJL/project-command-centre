@@ -54,7 +54,7 @@ export async function integrationStatus(request,env){
       note:"Public uploads from unverified Google API projects may be restricted to private."},
     instagram:{connected:0,configured:false,
       note:"Requires a Meta app, approved permissions, professional account and accessible media URL. Publishing is unavailable."},
-    github:{connected:Number(repos?.total||0),configured:Boolean(env.GITHUB_TOKEN),note:"Read-only repository issues work for public repositories. A Worker GITHUB_TOKEN secret is needed for private repositories and higher API limits."},
+    github:{connected:Number(repos?.total||0),configured:Boolean(env.GITHUB_TOKEN)&&String(env.GITHUB_TOKEN_USER_ID||"")===String(session.user.id),note:"Read-only repository issues work for public repositories. A Worker GITHUB_TOKEN secret is needed for private repositories and higher API limits."},
     assistant:{connected:0,configured:false,note:"Project context endpoint is available; no model connection or action execution is configured."}
   }},200,request);
 }

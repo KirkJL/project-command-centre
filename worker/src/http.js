@@ -87,7 +87,7 @@ export function handleOptions(
 
   if (
     !origin ||
-    !ALLOWED_ORIGINS.has(origin)
+    !ALLOWED_ORIGINS.has(origin) && origin !== new URL(request.url).origin
   ) {
     return new Response(null, {
       status: 403,

@@ -76,13 +76,16 @@ async function runScheduledTasks(
         Date.now()
     );
 
-    await reconcileTikTokUploads(env);
-    await reconcileYouTubeUploads(env);
-    await processRecurringTasks(env);
-    await collectYouTubeMetrics(env);
-    await processPublicationQueue(
-      env
-    );
+    const results = await Promise.allSettled([
+      reconcileTikTokUploads(env),
+      reconcileYouTubeUploads(env),
+      processRecurringTasks(env),
+      collectYouTubeMetrics(env)
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") console.error("Scheduled task failed:", result.reason);
+    }
+    await processPublicationQueue(env);
   } catch (error) {
     console.error(
       "Scheduled publication processor failed:",

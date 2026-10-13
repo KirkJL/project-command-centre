@@ -1,0 +1,17 @@
+[hidden] { display: none !important; }
+.workbench { max-width: 1100px; margin: 0 auto; }
+.workbench h1 { margin-top: 0; }
+.workbench-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0; }
+.workbench button { cursor: pointer; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; background: var(--surface, #171b25); color: inherit; }
+.workbench button[aria-current="page"], .workbench button[type="submit"] { background: var(--accent, #6c63ff); color: white; }
+.workbench button:disabled { opacity: .6; cursor: wait; }
+.workbench form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
+.workbench label { display: grid; gap: 6px; flex: 1 1 160px; }
+.workbench input, .workbench select { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #11151e; color: inherit; }
+.workbench input[type="datetime-local"] { color-scheme: dark; }
+.workspace-card { padding: 18px; border: 1px solid var(--border); border-radius: 12px; margin: 12px 0; background: var(--surface, #121620); overflow-wrap: anywhere; }
+.workspace-card h3 { margin: 0 0 8px; }
+.workspace-card p { color: var(--muted, #a5aec0); }
+.workspace-card > select { max-width: 220px; margin-right: 12px; }
+.workbench :focus-visible { outline: 2px solid #b5aaff; outline-offset: 3px; }
+@media(max-width: 600px) { .workbench form { flex-direction: column; align-items: stretch; } .workbench label { flex-basis: auto; } }

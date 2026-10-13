@@ -54,6 +54,10 @@
         class="login-form"
       >
 
+        <label id="display-name-label" hidden>
+          Display name
+          <input id="display-name" name="displayName" autocomplete="name" maxlength="100">
+        </label>
         <label>
           Username
 
@@ -81,6 +85,7 @@
         </label>
 
         <p
+          role="alert"
           id="login-error"
           class="error-message"
           hidden
@@ -95,6 +100,7 @@
         </button>
 
       </form>
+      <button id="account-mode" class="ghost-button" type="button">Create an account</button>
 
     </section>
 
@@ -103,86 +109,6 @@
   <script src="./js/config.js"></script>
   <script src="./js/api.js"></script>
 
-  <script>
-  "use strict";
-
-  const form =
-    document.getElementById(
-      "login-form"
-    );
-
-  const errorElement =
-    document.getElementById(
-      "login-error"
-    );
-
-  const button =
-    document.getElementById(
-      "login-button"
-    );
-
-
-  form.addEventListener(
-    "submit",
-    async event => {
-
-      event.preventDefault();
-
-      errorElement.hidden = true;
-
-      button.disabled = true;
-
-      button.textContent =
-        "Signing in...";
-
-      const username =
-        document
-          .getElementById("username")
-          .value;
-
-      const password =
-        document
-          .getElementById("password")
-          .value;
-
-      try {
-
-        await ProjectHubAPI.login(
-          username,
-          password
-        );
-
-        window.location.href =
-          "./index.html";
-
-      } catch (error) {
-
-  console.error(
-    "LOGIN FAILED:",
-    error
-  );
-
-  errorElement.textContent =
-    error?.data?.error ||
-    error?.message ||
-    "Login failed.";
-
-  errorElement.hidden = false;
-
-      
-      } finally {
-
-        button.disabled = false;
-
-        button.textContent =
-          "Enter Command Centre";
-
-      }
-
-    }
-  );
-  </script>
-
+  <script src="./js/login.js"></script>
 </body>
-
 </html>
